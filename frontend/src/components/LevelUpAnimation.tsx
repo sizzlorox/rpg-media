@@ -1,6 +1,6 @@
 // Level up animation component with ASCII art
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { green, cyan, yellow, magenta } from '../utils/ansi-colors'
 
 interface LevelUpAnimationProps {
@@ -9,22 +9,14 @@ interface LevelUpAnimationProps {
   onClose?: () => void
 }
 
-export function LevelUpAnimation({ newLevel, unlockedFeatures = [], onClose }: LevelUpAnimationProps) {
-  const [frame, setFrame] = useState(0)
-  const frames = ['░', '▒', '▓', '█']
-
+export function LevelUpAnimation({ onClose }: LevelUpAnimationProps) {
   useEffect(() => {
-    const interval = setInterval(() => {
-      setFrame((prev) => (prev + 1) % frames.length)
-    }, 150)
-
     // Auto-close after 5 seconds
     const timeout = setTimeout(() => {
       if (onClose) onClose()
     }, 5000)
 
     return () => {
-      clearInterval(interval)
       clearTimeout(timeout)
     }
   }, [onClose])

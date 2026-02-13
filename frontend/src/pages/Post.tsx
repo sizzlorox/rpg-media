@@ -22,10 +22,7 @@ interface PostPageProps {
 
 export function PostPage({ postId }: PostPageProps) {
   const { user } = useAuth()
-  const [post, setPost] = useState<PostWithAuthor | null>(null)
-  const [comments, setComments] = useState<CommentWithAuthor[]>([])
   const [terminalOutput, setTerminalOutput] = useState<string>('')
-  const [isLoading, setIsLoading] = useState(true)
 
   const writeLine = useCallback((text: string) => {
     setTerminalOutput((prev) => prev + text + '\r\n')
@@ -38,10 +35,7 @@ export function PostPage({ postId }: PostPageProps) {
 
   const loadPost = async () => {
     try {
-      setIsLoading(true)
       const result = await apiClient.get<PostDetailResponse>(`/posts/${postId}`)
-      setPost(result.post)
-      setComments(result.comments)
 
       // Display post
       let output = ''
@@ -68,8 +62,6 @@ export function PostPage({ postId }: PostPageProps) {
       setTerminalOutput(output)
     } catch (error) {
       writeLine(red(`✗ Failed to load post: ${(error as Error).message}`))
-    } finally {
-      setIsLoading(false)
     }
   }
 

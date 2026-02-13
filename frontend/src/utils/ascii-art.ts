@@ -5,7 +5,6 @@ export function createBox(title: string, width: number = 60): string {
   const top = '╔' + '═'.repeat(width - 2) + '╗'
   const titleLine = '║ ' + title.padEnd(width - 4) + ' ║'
   const separator = '╠' + '═'.repeat(width - 2) + '╣'
-  const bottom = '╚' + '═'.repeat(width - 2) + '╝'
 
   return `${top}\n${titleLine}\n${separator}`
 }

@@ -5,7 +5,7 @@ import { Terminal } from '../components/Terminal'
 import { renderASCIICharacterSheet } from '../components/ASCIICharacterSheet'
 import { useTerminalCommands } from '../hooks/useTerminalCommands'
 import { apiClient } from '../services/api-client'
-import { green, yellow, red } from '../utils/ansi-colors'
+import { yellow, red } from '../utils/ansi-colors'
 import type { UserProfile } from '../../../shared/types'
 import '../styles/terminal.css'
 
@@ -14,9 +14,7 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ username }: ProfilePageProps) {
-  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [terminalOutput, setTerminalOutput] = useState<string>('')
-  const [isLoading, setIsLoading] = useState(true)
 
   const writeLine = useCallback((text: string) => {
     setTerminalOutput((prev) => prev + text + '\r\n')
@@ -29,18 +27,14 @@ export function ProfilePage({ username }: ProfilePageProps) {
 
   const loadProfile = async (user?: string) => {
     try {
-      setIsLoading(true)
       const endpoint = user ? `/users/${user}` : '/auth/me'
       const result = await apiClient.get<UserProfile>(endpoint)
-      setProfile(result)
 
       // Display character sheet
       const sheet = renderASCIICharacterSheet(result)
       setTerminalOutput(sheet + '\r\n')
     } catch (error) {
       writeLine(red(`✗ Failed to load profile: ${(error as Error).message}`))
-    } finally {
-      setIsLoading(false)
     }
   }
 

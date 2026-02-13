@@ -9,7 +9,7 @@ interface FeatureLockProps {
   isUnlocked?: boolean
 }
 
-export function FeatureLock({ featureName, requiredLevel, currentLevel, isUnlocked }: FeatureLockProps) {
+export function FeatureLock(_props: FeatureLockProps) {
   return null // This component is meant for terminal rendering
 }
 

@@ -11,13 +11,12 @@ import { useCharacter } from '../hooks/useCharacter'
 import { useTerminalCommands } from '../hooks/useTerminalCommands'
 import { apiClient } from '../services/api-client'
 import { green, yellow, red, cyan, magenta } from '../utils/ansi-colors'
-import { createBox, closeBox, boxLine } from '../utils/ascii-art'
 import type { CreatePostRequest } from '../../../shared/types'
 import '../styles/terminal.css'
 
 export function HomePage() {
   const { user, isAuthenticated } = useAuth()
-  const { posts, loadDiscoveryFeed, loadHomeFeed, isLoading } = useFeed()
+  const { posts, loadDiscoveryFeed, loadHomeFeed } = useFeed()
   const { xpProgress, loadXPProgress, refreshCharacter } = useCharacter()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
 
@@ -140,7 +139,7 @@ export function HomePage() {
       writeLine(cyan('═'.repeat(60)))
       writeLine('')
 
-      const result = await apiClient.get<{ thresholds: Array<{ level: number; xp_required: number; feature_unlocked: string | null }> }>('/levels/thresholds')
+      const result = await apiClient.get<{ thresholds: Array<{ level: number; xp_required: number; features_unlocked: string | null }> }>('/levels/thresholds')
 
       writeLine(yellow('Level | XP Required | Feature Unlocked'))
       writeLine('─'.repeat(60))
@@ -148,7 +147,7 @@ export function HomePage() {
       result.thresholds.forEach((threshold) => {
         const levelStr = threshold.level.toString().padEnd(5)
         const xpStr = threshold.xp_required.toString().padEnd(11)
-        const featureStr = threshold.feature_unlocked || '-'
+        const featureStr = threshold.features_unlocked || '-'
         writeLine(`${green(levelStr)} | ${cyan(xpStr)} | ${magenta(featureStr)}`)
       })
 

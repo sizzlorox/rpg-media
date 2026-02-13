@@ -8,7 +8,7 @@ interface ASCIICharacterSheetProps {
   profile: UserProfile
 }
 
-export function ASCIICharacterSheet({ profile }: ASCIICharacterSheetProps) {
+export function ASCIICharacterSheet(_props: ASCIICharacterSheetProps) {
   return null // This component is meant for terminal rendering
 }
 
@@ -100,7 +100,6 @@ export function renderASCIICharacterSheet(profile: UserProfile): string {
   ]
 
   stats.forEach((stat) => {
-    const statLine = `    ${stat.label.padEnd(20)} ${stat.value.toString().padStart(8)}`
     lines.push(
       green('║') +
       '  ' +

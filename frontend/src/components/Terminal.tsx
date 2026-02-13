@@ -13,8 +13,8 @@ interface TerminalProps {
 
 export function Terminal({ onCommand, initialContent }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
-  const xtermRef = useRef<XTerm>()
-  const fitAddonRef = useRef<FitAddon>()
+  const xtermRef = useRef<XTerm | null>(null)
+  const fitAddonRef = useRef<FitAddon | null>(null)
   const commandBufferRef = useRef<string>('')
 
   useEffect(() => {
@@ -125,23 +125,6 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
       term.dispose()
     }
   }, [onCommand, initialContent])
-
-  // Public method to write to terminal
-  const write = (text: string) => {
-    xtermRef.current?.write(text)
-  }
-
-  // Public method to write line to terminal
-  const writeLine = (text: string) => {
-    xtermRef.current?.write(text + '\r\n')
-  }
-
-  // Expose methods via ref if needed
-  useEffect(() => {
-    if (xtermRef.current) {
-      (xtermRef.current as any).writeLine = writeLine
-    }
-  }, [])
 
   return (
     <div

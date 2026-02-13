@@ -1,6 +1,7 @@
 // Terminal command input prompt component
 
-import { useState, KeyboardEvent } from 'react'
+import { useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { green } from '../utils/ansi-colors'
 
 interface TerminalPromptProps {
