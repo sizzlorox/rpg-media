@@ -8,6 +8,8 @@ import { useTerminal } from './useTerminal'
 import { apiClient } from '../services/api-client'
 import { green, yellow, red, cyan, magenta } from '../utils/ansi-colors'
 import { getResponsiveWidth } from '../utils/responsive-width'
+import { getResponsiveConfig, getCurrentViewportWidth } from '../utils/terminal-responsive'
+import { renderWelcomeMessage } from '../utils/welcome-message'
 import { renderTerminalPost } from '../components/TerminalPost'
 import { renderTerminalXPBar } from '../components/TerminalXPBar'
 import { renderLevelUpAnimation, getUnlockedFeatures } from '../components/LevelUpAnimation'
@@ -391,7 +393,7 @@ export function useHomeLogic() {
     onClear: terminal.clear,
   })
 
-  // Refined welcome message logic
+  // Refined welcome message logic with ASCII art
   useEffect(() => {
     if (isRefreshingRef.current) {
       isRefreshingRef.current = false
@@ -402,14 +404,15 @@ export function useHomeLogic() {
 
     const cols = terminal.terminalCols.current || 80
     const width = getResponsiveWidth(cols)
+    const responsiveConfig = getResponsiveConfig(getCurrentViewportWidth())
+    const asciiWelcome = renderWelcomeMessage(cols, responsiveConfig.logoType)
 
     if (isAuthenticated && user && posts.length > 0 && xpProgress) {
       const xpBar = renderTerminalXPBar(xpProgress.current_level, xpProgress.total_xp, xpProgress.xp_for_next_level, xpProgress.progress_percent, cols)
       const welcome = [
-        green('═'.repeat(width)),
-        green('Welcome to Social Forge!'),
+        asciiWelcome,
+        '',
         xpBar,
-        green('═'.repeat(width)),
         '',
         yellow(`Showing ${posts.length} posts:`),
         '',
@@ -419,9 +422,7 @@ export function useHomeLogic() {
       hasShownInitialWelcome.current = true
     } else if (!isAuthenticated && posts.length > 0) {
       const welcome = [
-        green('═'.repeat(width)),
-        green('Welcome to Social Forge!'),
-        green('═'.repeat(width)),
+        asciiWelcome,
         '',
         yellow(`Showing ${posts.length} popular posts:`),
         '',
