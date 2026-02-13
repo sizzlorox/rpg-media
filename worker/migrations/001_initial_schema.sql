@@ -1,5 +1,5 @@
 -- Migration 001: Initial Database Schema
--- RPG Social Media Platform
+-- Social Forge Platform
 -- All tables use STRICT mode per Constitution Principle III
 -- Created: 2026-02-13
 

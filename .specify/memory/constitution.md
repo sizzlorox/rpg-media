@@ -27,7 +27,7 @@ FOLLOW-UP TODOS:
 - None - All placeholders filled with concrete values
 -->
 
-# RPG Social Media Constitution
+# Social Forge Constitution
 
 ## Core Principles
 

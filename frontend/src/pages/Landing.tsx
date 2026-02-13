@@ -135,7 +135,7 @@ export function Landing() {
 
     // SEE ALSO section
     lines.push(createSectionHeader('SEE ALSO'))
-    lines.push(indentText('GitHub: github.com/yourname/rpg-media'))
+    lines.push(indentText('Apogee Forge: https://apogeeforge.com'))
     lines.push(indentText('Documentation: /help'))
     lines.push('')
 

@@ -1,4 +1,4 @@
-// Shared TypeScript Types for RPG Social Media Platform
+// Shared TypeScript Types for Social Forge Platform
 // Used by both worker (backend) and frontend
 // Mirrors database schema with exact type mappings
 

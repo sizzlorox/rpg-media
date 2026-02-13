@@ -1,5 +1,5 @@
 // Cloudflare Worker Entry Point
-// RPG Social Media Platform - Hono API
+// Social Forge Platform - Hono API
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'

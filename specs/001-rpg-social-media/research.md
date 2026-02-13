@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document consolidates technology research, best practices, and architectural decisions for the RPG Social Media platform. All "NEEDS CLARIFICATION" items from Technical Context have been resolved.
+This document consolidates technology research, best practices, and architectural decisions for the Social Forge platform. All "NEEDS CLARIFICATION" items from Technical Context have been resolved.
 
 ---
 
@@ -684,7 +684,7 @@ export function Terminal() {
     // ASCII art welcome message
     term.write('\x1b[32m')  // Green color
     term.write('╔══════════════════════════════════════╗\r\n')
-    term.write('║   RPG SOCIAL MEDIA - MUD EDITION    ║\r\n')
+    term.write('║   Social Forge - MUD EDITION    ║\r\n')
     term.write('╚══════════════════════════════════════╝\r\n')
     term.write('\r\n')
     term.write('> Welcome, adventurer!\r\n')

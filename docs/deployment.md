@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-Complete guide for deploying the RPG Social Media Platform to Cloudflare.
+Complete guide for deploying the Social Forge Platform to Cloudflare.
 
 ## Prerequisites
 
@@ -323,7 +323,7 @@ curl https://YOUR_DOMAIN/api/feed/discover
 
 1. Open https://YOUR_DOMAIN in browser
 2. Run `/register testuser password123`
-3. Run `/post Hello RPG social media!`
+3. Run `/post Hello Social Forge!`
 4. Verify XP award notification
 5. Run `/profile` to check character sheet
 

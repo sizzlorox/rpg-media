@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document defines the database schema for the RPG Social Media platform, including entity definitions, relationships, indexes, and D1-specific constraints. All tables follow Constitution Principle III (STRICT mode with explicit types).
+This document defines the database schema for the Social Forge platform, including entity definitions, relationships, indexes, and D1-specific constraints. All tables follow Constitution Principle III (STRICT mode with explicit types).
 
 ---
 

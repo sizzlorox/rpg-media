@@ -1,4 +1,4 @@
-# Quickstart Guide: RPG Social Media Platform
+# Quickstart Guide: Social Forge Platform
 
 **Last Updated**: 2026-02-13
 **Phase**: 1 - Implementation Ready

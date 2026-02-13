@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: RPG Social Media API
+  title: Social Forge API
   description: |
     Twitter-like social media platform with RPG gamification mechanics.
     Users earn XP through interactions, level up, and unlock features progressively.
   version: 1.0.0
   contact:
-    name: RPG Social Media Team
+    name: Social Forge Team
 
 servers:
   - url: https://api.rpg-social.workers.dev

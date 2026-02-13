@@ -1,6 +1,6 @@
 # Terminal Commands Reference
 
-Complete reference for all terminal commands in the RPG Social Media Platform.
+Complete reference for all terminal commands in the Social Forge Platform.
 
 ## Command Format
 
@@ -63,7 +63,7 @@ Create a new post.
 
 **Example**:
 ```bash
-> /post Just leveled up! This RPG social media is amazing!
+> /post Just leveled up! This Social Forge is amazing!
 ✓ Post created!
 +10 XP
 ```
@@ -212,7 +212,7 @@ View your personalized home feed.
 ```bash
 > /feed
 ═══════════════════════════════════════════════════════════
-Welcome to RPG Social Media!
+Welcome to Social Forge!
 Level 5 █████████░░░░░░░░░░░░░░░░░░░░ 2500/10000 XP
 ═══════════════════════════════════════════════════════════
 

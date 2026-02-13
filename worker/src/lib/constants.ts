@@ -1,4 +1,4 @@
-// XP and Level Constants for RPG Social Media Platform
+// XP and Level Constants for Social Forge Platform
 // Per spec FR-015 and FR-016
 
 // XP award values for each action (FR-015)

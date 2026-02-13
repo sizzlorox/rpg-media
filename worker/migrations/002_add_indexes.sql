@@ -1,5 +1,5 @@
 -- Migration 002: Database Indexes
--- RPG Social Media Platform
+-- Social Forge Platform
 -- Created per Constitution Principle II (Index-First Performance)
 -- Total: 16 indexes across all tables
 -- Created: 2026-02-13
