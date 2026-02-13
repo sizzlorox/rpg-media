@@ -36,3 +36,23 @@ ENVIRONMENT = "production"
 # - JWT_SECRET (required)
 # - SENTRY_DSN (optional)
 # - PUBLIC_URL (optional)
+
+# Production environment (uses same bindings as default)
+[env.production]
+name = "rpg-social-worker-production"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "rpg-social-media-production"
+database_id = "cf50ebd0-04f0-41cc-910b-e6f1fa3facec"
+
+[[env.production.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "rpg-media-uploads-production"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "8e59389f021b4ea48f3e71333b1ac39e"
+
+[env.production.vars]
+ENVIRONMENT = "production"
