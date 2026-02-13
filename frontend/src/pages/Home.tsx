@@ -123,6 +123,35 @@ export function HomePage() {
     [isAuthenticated, writeLine, loadHomeFeed]
   )
 
+  const handleComment = useCallback(
+    async (postId: string, content: string) => {
+      if (!isAuthenticated) {
+        writeLine(red('✗ You must be logged in to comment on posts'))
+        return
+      }
+
+      try {
+        const result = await apiClient.post<any>(`/posts/${postId}/comments`, { content })
+        writeLine(green('✓ Comment posted!'))
+        writeLine(yellow(`+${result.xp_awarded.commenter} XP (you), +${result.xp_awarded.creator} XP (creator)`))
+
+        if (result.level_up.commenter && user) {
+          writeLine('')
+          const newLevel = user.level + 1
+          const unlockedFeatures = getUnlockedFeatures(newLevel)
+          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures))
+          writeLine('')
+        }
+
+        // Refresh feed and XP progress
+        await Promise.all([loadHomeFeed(), refreshCharacter()])
+      } catch (error) {
+        writeLine(red(`✗ Failed to comment on post: ${(error as Error).message}`))
+      }
+    },
+    [isAuthenticated, user, writeLine, loadHomeFeed, refreshCharacter]
+  )
+
   const handleFollow = useCallback(
     async (username: string) => {
       if (!isAuthenticated) {
@@ -251,6 +280,7 @@ export function HomePage() {
     onPost: handlePost,
     onFeed: handleFeed,
     onLike: handleLike,
+    onComment: handleComment,
     onFollow: handleFollow,
     onUnfollow: handleUnfollow,
     onLevels: handleLevels,
