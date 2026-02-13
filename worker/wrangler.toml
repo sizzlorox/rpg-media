@@ -34,7 +34,7 @@ ENVIRONMENT = "production"
 
 # Observability configuration
 [observability.logs]
-enabled = false
+enabled = true
 invocation_logs = true
 
 # Secrets (set via: wrangler secret put <NAME>)
@@ -63,5 +63,5 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 ENVIRONMENT = "production"
 
 [env.production.observability.logs]
-enabled = false
+enabled = true
 invocation_logs = true
