@@ -226,14 +226,30 @@ interactions.get('/posts/:id/comments', async (c) => {
     }
 
     // Get comments with author details using the resolved full ID
-    const comments = await db.query(
-      `SELECT c.*, u.username, u.level, u.avatar_url
+    const rows = await db.query<any>(
+      `SELECT c.id, c.user_id, c.post_id, c.content, c.created_at, c.updated_at,
+              u.username, u.level, u.avatar_url
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.post_id = ?
        ORDER BY c.created_at ASC`,
       post.id
     )
+
+    // Transform flat rows into CommentWithAuthor structure
+    const comments = rows.map(row => ({
+      id: row.id,
+      user_id: row.user_id,
+      post_id: row.post_id,
+      content: row.content,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      author: {
+        username: row.username,
+        level: row.level,
+        avatar_url: row.avatar_url
+      }
+    }))
 
     return c.json({ comments })
   } catch (error) {
