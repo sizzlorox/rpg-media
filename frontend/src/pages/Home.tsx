@@ -24,22 +24,23 @@ export function HomePage() {
   const { pagination, loadComments, lastViewedPostId } = useComments()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
   const terminalColsRef = useRef<number>(80) // Stores current terminal width
-  const hasLoadedInitialData = useRef(false)
+  const hasShownInitialWelcome = useRef(false)
   const isRefreshingRef = useRef(false)
 
   const writeLine = useCallback((text: string) => {
     setTerminalOutput((prev) => prev + text + '\r\n')
   }, [])
 
-  // Load initial feed and XP progress (only once per auth state)
+  // Load initial feed and XP progress when auth state changes
   useEffect(() => {
-    if (isAuthenticated && !hasLoadedInitialData.current) {
+    // Reset welcome flag so it shows again for the new auth state
+    hasShownInitialWelcome.current = false
+
+    if (isAuthenticated) {
       loadHomeFeed()
       loadXPProgress()
-      hasLoadedInitialData.current = true
-    } else if (!isAuthenticated && !hasLoadedInitialData.current) {
+    } else {
       loadDiscoveryFeed()
-      hasLoadedInitialData.current = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]) // Only depend on isAuthenticated, not the callback functions
@@ -445,8 +446,8 @@ export function HomePage() {
       return
     }
 
-    // Only run if initial data was requested
-    if (!hasLoadedInitialData.current) return
+    // Skip if we've already shown the initial welcome
+    if (hasShownInitialWelcome.current) return
 
     // Wait for ALL data to be ready
     if (isAuthenticated && user && posts.length > 0 && xpProgress) {
@@ -478,7 +479,7 @@ export function HomePage() {
       )
 
       // Mark as complete so this doesn't run again
-      hasLoadedInitialData.current = false
+      hasShownInitialWelcome.current = true
     } else if (!isAuthenticated && posts.length > 0) {
       // For unauthenticated users (discovery feed)
       const cols = terminalColsRef.current || 80
@@ -500,7 +501,7 @@ export function HomePage() {
       )
 
       // Mark as complete so this doesn't run again
-      hasLoadedInitialData.current = false
+      hasShownInitialWelcome.current = true
     }
   }, [isAuthenticated, user, posts, xpProgress])
 
