@@ -92,6 +92,18 @@ export interface CommentWithAuthor extends Comment {
   }
 }
 
+export interface CommentsResponse {
+  comments: CommentWithAuthor[]
+  pagination: {
+    page: number
+    limit: number
+    total_comments: number
+    total_pages: number
+    has_more: boolean
+    has_previous: boolean
+  }
+}
+
 // ==================== API Request/Response Payloads ====================
 
 export interface RegisterRequest {

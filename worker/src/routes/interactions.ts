@@ -208,13 +208,30 @@ interactions.post('/posts/:id/comments', authMiddleware, rateLimiter('comment'),
   }
 })
 
-// GET /api/posts/:id/comments - Get comments for a post
+// GET /api/posts/:id/comments - Get comments for a post (paginated)
 interactions.get('/posts/:id/comments', async (c) => {
   const postId = c.req.param('id')
 
   try {
     const db = createDatabaseClient(c.env)
     const postModel = new PostModel(db)
+
+    // Parse pagination parameters from query string
+    const limitParam = c.req.query('limit')
+    const pageParam = c.req.query('page')
+
+    const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10)), 100) : 15
+    const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1
+
+    // Validate parameters
+    if (isNaN(limit) || isNaN(page)) {
+      return c.json({
+        error: 'BadRequest',
+        message: 'Invalid pagination parameters',
+      }, 400)
+    }
+
+    const offset = (page - 1) * limit
 
     // Resolve short ID to full ID (supports 8-char IDs)
     const post = await postModel.findById(postId)
@@ -225,19 +242,34 @@ interactions.get('/posts/:id/comments', async (c) => {
       }, 404)
     }
 
-    // Get comments with author details using the resolved full ID
+    // Get total comment count for this post
+    const countResult = await db.query<{ total: number }>(
+      `SELECT COUNT(*) as total FROM comments WHERE post_id = ?`,
+      post.id
+    )
+    const total_comments = countResult[0]?.total || 0
+    const total_pages = Math.ceil(total_comments / limit)
+
+    // Get comments with author details using limit+1 pattern for has_more detection
     const rows = await db.query<any>(
       `SELECT c.id, c.user_id, c.post_id, c.content, c.created_at, c.updated_at,
               u.username, u.level, u.avatar_url
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.post_id = ?
-       ORDER BY c.created_at ASC`,
-      post.id
+       ORDER BY c.created_at ASC
+       LIMIT ? OFFSET ?`,
+      post.id,
+      limit + 1,
+      offset
     )
 
+    // Check if there are more comments
+    const has_more = rows.length > limit
+    const commentsToReturn = rows.slice(0, limit)
+
     // Transform flat rows into CommentWithAuthor structure
-    const comments = rows.map(row => ({
+    const comments = commentsToReturn.map(row => ({
       id: row.id,
       user_id: row.user_id,
       post_id: row.post_id,
@@ -251,7 +283,17 @@ interactions.get('/posts/:id/comments', async (c) => {
       }
     }))
 
-    return c.json({ comments })
+    return c.json({
+      comments,
+      pagination: {
+        page,
+        limit,
+        total_comments,
+        total_pages,
+        has_more,
+        has_previous: page > 1
+      }
+    })
   } catch (error) {
     return c.json({
       error: 'InternalServerError',

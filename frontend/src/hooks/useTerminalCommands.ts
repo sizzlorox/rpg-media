@@ -17,7 +17,7 @@ interface UseTerminalCommandsOptions {
   onProfile?: (username?: string) => Promise<void>
   onLike?: (postId: string) => Promise<void>
   onComment?: (postId: string, content: string) => Promise<void>
-  onShow?: (postId: string) => Promise<void>
+  onShow?: (postId: string, pageArg?: string) => Promise<void>
   onFollow?: (username: string) => Promise<void>
   onUnfollow?: (username: string) => Promise<void>
   onStats?: () => Promise<void>
@@ -138,17 +138,19 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
       name: '/show',
       handler: async (args) => {
         if (args.length === 0) {
-          return 'Usage: /show <post_id>'
+          return 'Usage: /show <post_id> [page|next|prev]'
         }
         const postId = args[0]
+        const pageArg = args[1] // Can be page number, 'next', or 'prev'
+
         if (options.onShow) {
-          await options.onShow(postId)
+          await options.onShow(postId, pageArg)
           return '' // Callback handles output
         }
         return `Loading comments for post ${postId}...`
       },
       description: 'View comments on a post',
-      usage: '/show <post_id>',
+      usage: '/show <post_id> [page|next|prev]',
     },
     {
       name: '/follow',
