@@ -214,16 +214,25 @@ interactions.get('/posts/:id/comments', async (c) => {
 
   try {
     const db = createDatabaseClient(c.env)
-    const commentModel = new CommentModel(db)
+    const postModel = new PostModel(db)
 
-    // Get comments with author details
+    // Resolve short ID to full ID (supports 8-char IDs)
+    const post = await postModel.findById(postId)
+    if (!post) {
+      return c.json({
+        error: 'NotFound',
+        message: 'Post not found',
+      }, 404)
+    }
+
+    // Get comments with author details using the resolved full ID
     const comments = await db.query(
       `SELECT c.*, u.username, u.level, u.avatar_url
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.post_id = ?
        ORDER BY c.created_at ASC`,
-      postId
+      post.id
     )
 
     return c.json({ comments })
