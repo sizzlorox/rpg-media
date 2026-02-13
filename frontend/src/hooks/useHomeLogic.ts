@@ -7,7 +7,6 @@ import { useTerminalCommands } from './useTerminalCommands'
 import { useTerminal } from './useTerminal'
 import { apiClient } from '../services/api-client'
 import { green, yellow, red, cyan, magenta } from '../utils/ansi-colors'
-import { getResponsiveWidth } from '../utils/responsive-width'
 import { getResponsiveConfig, getCurrentViewportWidth } from '../utils/terminal-responsive'
 import { renderWelcomeMessage } from '../utils/welcome-message'
 import { renderTerminalPost } from '../components/TerminalPost'
@@ -403,7 +402,6 @@ export function useHomeLogic() {
     if (hasShownInitialWelcome.current) return
 
     const cols = terminal.terminalCols.current || 80
-    const width = getResponsiveWidth(cols)
     const responsiveConfig = getResponsiveConfig(getCurrentViewportWidth())
     const asciiWelcome = renderWelcomeMessage(cols, responsiveConfig.logoType)
 
