@@ -173,20 +173,27 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
 
       // Clear old suggestion if it exists
       if (oldSuggestion) {
-        // Overwrite with spaces, then backspace to original cursor position
+        // Overwrite with spaces, then move back to original cursor position
         term.write(' '.repeat(oldSuggestion.length))
-        term.write('\b'.repeat(oldSuggestion.length))
+        term.write(ANSI.moveLeft(oldSuggestion.length))
       }
 
-      // Write new suggestion in dim gray and backspace cursor to original position
+      // Write new suggestion in dim gray and move cursor back to original position
       if (newSuggestion) {
         term.write('\x1b[2m') // ANSI.DIM
         term.write(newSuggestion)
         term.write('\x1b[0m') // ANSI.RESET
-        term.write('\b'.repeat(newSuggestion.length))
+        term.write(ANSI.moveLeft(newSuggestion.length))
       }
 
       autocompleteRef.current = newSuggestion
+    }
+
+    // Helper: ANSI escape codes for cursor control
+    const ANSI = {
+      moveToColumn: (col: number) => `\x1b[${col}G`,
+      clearToEnd: () => '\x1b[K',
+      moveLeft: (n: number) => n > 0 ? `\x1b[${n}D` : '',
     }
 
     // Helper: Clear autocomplete
@@ -194,7 +201,7 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
       if (autocompleteRef.current) {
         // Overwrite with spaces
         term.write(' '.repeat(autocompleteRef.current.length))
-        term.write('\b'.repeat(autocompleteRef.current.length))
+        term.write(ANSI.moveLeft(autocompleteRef.current.length))
         autocompleteRef.current = ''
       }
     }
@@ -204,19 +211,15 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
       const buffer = commandBufferRef.current
       const cursorPos = cursorPositionRef.current
 
-      // Clear autocomplete first
       clearAutocomplete()
 
-      // Move cursor to start of input
-      if (cursorPos > 0) {
-        term.write('\b'.repeat(cursorPos))
-      }
+      // Move cursor to start of input (column 3, after "> ")
+      term.write(ANSI.moveToColumn(3))
 
-      // Clear entire line
-      term.write(' '.repeat(buffer.length))
-      term.write('\b'.repeat(buffer.length))
+      // Clear from cursor to end of line
+      term.write(ANSI.clearToEnd())
 
-      // Redraw the line with password masking if needed
+      // Redraw with password masking
       const parts = buffer.split(' ')
       const cmd = parts[0].toLowerCase()
       if ((cmd === '/login' || cmd === '/register') && parts.length >= 3) {
@@ -228,11 +231,8 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
         term.write(buffer)
       }
 
-      // Move cursor back to correct position
-      const charsAfterCursor = buffer.length - cursorPos
-      if (charsAfterCursor > 0) {
-        term.write('\b'.repeat(charsAfterCursor))
-      }
+      // Move cursor to correct position (column 3 + cursorPos)
+      term.write(ANSI.moveToColumn(3 + cursorPos))
 
       // Show autocomplete only if cursor is at end
       if (cursorPos === buffer.length) {
@@ -243,31 +243,19 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
 
     // Helper: Replace current line (for history navigation)
     function replaceCurrentLine(newText: string) {
-      // Clear current line from cursor back to start
-      clearAutocomplete() // Clear any suggestion first
+      clearAutocomplete()
 
-      // Move cursor to beginning
-      const currentCursorPos = cursorPositionRef.current
-      if (currentCursorPos > 0) {
-        term.write('\b'.repeat(currentCursorPos))
-      }
+      // Move to start of input and clear to end
+      term.write(ANSI.moveToColumn(3))
+      term.write(ANSI.clearToEnd())
 
-      const charsToDelete = commandBufferRef.current.length
-      if (charsToDelete > 0) {
-        // Clear entire old line
-        term.write(' '.repeat(charsToDelete))
-        term.write('\b'.repeat(charsToDelete))
-      }
-
-      // Update buffer and cursor position
       commandBufferRef.current = newText
-      cursorPositionRef.current = newText.length // Move cursor to end
+      cursorPositionRef.current = newText.length
 
       // Apply password masking if needed
       const parts = newText.split(' ')
       const cmd = parts[0].toLowerCase()
       if ((cmd === '/login' || cmd === '/register') && parts.length >= 3) {
-        // Write visible parts (command + username + space)
         const visiblePart = parts.slice(0, 2).join(' ') + ' '
         const passwordPart = parts.slice(2).join(' ')
         term.write(visiblePart)
@@ -278,7 +266,6 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
         passwordMaskIndexRef.current = -1
       }
 
-      // Generate new autocomplete for the replaced text
       const suggestion = generateAutocomplete(newText)
       updateAutocomplete(suggestion)
     }
@@ -325,7 +312,7 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
 
       // Clear the gray suggestion visually (overwrite with spaces)
       term.write(' '.repeat(suggestion.length))
-      term.write('\b'.repeat(suggestion.length))
+      term.write(ANSI.moveLeft(suggestion.length))
 
       // Add suggestion to buffer and write in normal color
       commandBufferRef.current += suggestion

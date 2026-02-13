@@ -20,7 +20,7 @@ import { green, yellow, red, cyan, bold } from '../utils/ansi-colors'
 const WIDTH = 80
 
 export function Landing() {
-  const { recentPosts, trendingPosts, hasMore, loadMore, refresh } = usePublicFeed()
+  const { recentPosts, trendingPosts, isLoading, error, hasMore, loadMore, refresh } = usePublicFeed()
   const { login, register, isAuthenticated } = useAuth()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
 
@@ -28,17 +28,8 @@ export function Landing() {
     setTerminalOutput((prev) => prev + text + '\r\n')
   }, [])
 
-  // Load initial feeds
-  useEffect(() => {
-    refresh()
-  }, [refresh])
-
   // Build initial man page content
   useEffect(() => {
-    if (recentPosts.length === 0 && trendingPosts.length === 0) {
-      return
-    }
-
     const lines: string[] = []
 
     // Top border
@@ -72,7 +63,25 @@ export function Landing() {
     lines.push(indentText(green(createDoubleLine(WIDTH - 10))))
     lines.push('')
 
-    if (recentPosts.length > 0) {
+    // Handle loading state
+    if (isLoading) {
+      lines.push(indentText(yellow('Loading feed...')))
+      lines.push('')
+    }
+    // Handle error state
+    else if (error) {
+      lines.push(indentText(red(`Error: ${error}`)))
+      lines.push(indentText(yellow('Try typing /feed to refresh')))
+      lines.push('')
+    }
+    // Handle empty state
+    else if (recentPosts.length === 0) {
+      lines.push(indentText(yellow('No posts available')))
+      lines.push(indentText('Be the first to post! Use /register to create an account.'))
+      lines.push('')
+    }
+    // Display posts
+    else {
       recentPosts.forEach((post) => {
         lines.push(renderManPagePost(post, undefined, WIDTH))
         lines.push('')
@@ -82,9 +91,6 @@ export function Landing() {
         lines.push(indentText(yellow('Use /feed more to load additional posts')))
         lines.push('')
       }
-    } else {
-      lines.push(indentText(yellow('No posts available')))
-      lines.push('')
     }
 
     // TRENDING THIS WEEK section
@@ -92,7 +98,13 @@ export function Landing() {
     lines.push(indentText(green(createDoubleLine(WIDTH - 10))))
     lines.push('')
 
-    if (trendingPosts.length > 0) {
+    if (isLoading) {
+      lines.push(indentText(yellow('Loading trending posts...')))
+      lines.push('')
+    } else if (error) {
+      lines.push(indentText(red('Unable to load trending posts')))
+      lines.push('')
+    } else if (trendingPosts.length > 0) {
       trendingPosts.slice(0, 10).forEach((post, index) => {
         lines.push(renderManPagePost(post, index + 1, WIDTH))
         lines.push('')
@@ -133,7 +145,7 @@ export function Landing() {
     lines.push('')
 
     setTerminalOutput(lines.join('\r\n'))
-  }, [recentPosts, trendingPosts, hasMore])
+  }, [recentPosts, trendingPosts, isLoading, error, hasMore])
 
   const handleCommand = useCallback(
     async (command: string) => {
