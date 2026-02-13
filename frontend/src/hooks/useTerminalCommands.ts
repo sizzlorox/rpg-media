@@ -37,6 +37,7 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
         const [username, password] = args
         if (options.onRegister) {
           await options.onRegister(username, password)
+          return '' // Callback handles output
         }
         return `✓ Account created: ${username}`
       },
@@ -52,6 +53,7 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
         const [username, password] = args
         if (options.onLogin) {
           await options.onLogin(username, password)
+          return '' // Callback handles output
         }
         return `✓ Logged in as ${username}`
       },
@@ -67,6 +69,7 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
         const content = args.join(' ')
         if (options.onPost) {
           await options.onPost(content)
+          return '' // Callback handles output
         }
         return '✓ Post created! +10 XP'
       },
@@ -105,6 +108,7 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
         const postId = args[0]
         if (options.onLike) {
           await options.onLike(postId)
+          return '' // Callback handles output
         }
         return '✓ Post liked! +1 XP'
       },
@@ -121,6 +125,7 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
         const content = contentParts.join(' ')
         if (options.onComment) {
           await options.onComment(postId, content)
+          return '' // Callback handles output
         }
         return '✓ Comment posted! +5 XP'
       },
@@ -136,6 +141,7 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
         const username = args[0]
         if (options.onFollow) {
           await options.onFollow(username)
+          return '' // Callback handles output
         }
         return `✓ Now following ${username}`
       },
@@ -151,6 +157,7 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
         const username = args[0]
         if (options.onUnfollow) {
           await options.onUnfollow(username)
+          return '' // Callback handles output
         }
         return `✓ Unfollowed ${username}`
       },

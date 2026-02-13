@@ -65,6 +65,9 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
     xtermRef.current = term
     fitAddonRef.current = fitAddon
 
+    // Focus terminal on load
+    term.focus()
+
     // Display welcome message
     term.write('\x1b[32m') // Green color
     term.write('╔══════════════════════════════════════════════════════════════════╗\r\n')
@@ -97,6 +100,9 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
 
         commandBufferRef.current = ''
         term.write('> ')
+
+        // Keep terminal focused
+        setTimeout(() => term.focus(), 0)
       }
       // Backspace
       else if (code === 127 || code === 8) {
