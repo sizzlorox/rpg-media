@@ -7,7 +7,7 @@ import { trackEvent } from '../lib/logger'
 export async function analyticsLogger(c: Context<HonoEnv>, next: Next) {
   const start = Date.now()
 
-  await next()
+  const response = await next()
 
   const duration = Date.now() - start
 
@@ -19,4 +19,6 @@ export async function analyticsLogger(c: Context<HonoEnv>, next: Next) {
     duration,
     userId: c.get('userId'),
   })
+
+  return response
 }

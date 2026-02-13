@@ -26,7 +26,7 @@ export async function authMiddleware(c: Context<HonoEnv>, next: Next) {
     c.set('username', payload.username)
     c.set('level', payload.level)
 
-    await next()
+    return await next()
   } catch (error) {
     return c.json({
       error: 'Unauthorized',
@@ -51,5 +51,5 @@ export async function optionalAuth(c: Context<HonoEnv>, next: Next) {
     }
   }
 
-  await next()
+  return await next()
 }

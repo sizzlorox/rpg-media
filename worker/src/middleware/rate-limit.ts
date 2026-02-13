@@ -42,6 +42,6 @@ export function rateLimiter(action: ActionType) {
       expirationTtl: 3600,
     })
 
-    await next()
+    return await next()
   }
 }
