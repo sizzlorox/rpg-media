@@ -17,7 +17,7 @@ import mediaRoutes from './routes/media'
 
 const app = new Hono<HonoEnv>()
 
-// Middleware - CORS with credentials support
+// Middleware - CORS with credentials support (same-origin via /api/* route)
 app.use('*', cors({
   origin: 'https://rpg.apogeeforge.com',
   credentials: true,
@@ -29,14 +29,14 @@ app.use('*', cors({
 app.use('*', analyticsLogger)
 
 // Routes
-app.route('/auth', authRoutes)
-app.route('/posts', postsRoutes)
-app.route('/users', usersRoutes)
-app.route('/feed', feedRoutes)
-app.route('/', interactionsRoutes)
-app.route('/xp', xpRoutes)
-app.route('/levels', levelsRoutes)
-app.route('/media', mediaRoutes)
+app.route('/api/auth', authRoutes)
+app.route('/api/posts', postsRoutes)
+app.route('/api/users', usersRoutes)
+app.route('/api/feed', feedRoutes)
+app.route('/api', interactionsRoutes)
+app.route('/api/xp', xpRoutes)
+app.route('/api/levels', levelsRoutes)
+app.route('/api/media', mediaRoutes)
 
 // Health check endpoint
 app.get('/health', (c) => {

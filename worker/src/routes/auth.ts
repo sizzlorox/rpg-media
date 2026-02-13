@@ -28,11 +28,11 @@ auth.post('/register', async (c) => {
     // Generate token for auto-login
     const { token } = await authService.login(username, password)
 
-    // Set httpOnly cookie for cross-origin requests
+    // Set httpOnly cookie (SameSite=Strict for security)
     setCookie(c, 'auth_token', token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'None',
+      secure: c.env.ENVIRONMENT === 'production',
+      sameSite: 'Strict',
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
     })
@@ -61,11 +61,11 @@ auth.post('/login', async (c) => {
 
     const { user, token } = await authService.login(username, password)
 
-    // Set httpOnly cookie for cross-origin requests
+    // Set httpOnly cookie (SameSite=Strict for security)
     setCookie(c, 'auth_token', token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'None',
+      secure: c.env.ENVIRONMENT === 'production',
+      sameSite: 'Strict',
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
     })

@@ -43,6 +43,9 @@ invocation_logs = true
 # Production environment (uses same bindings as default)
 [env.production]
 name = "rpg-social-worker-production"
+routes = [
+  { pattern = "rpg.apogeeforge.com/api/*", zone_name = "apogeeforge.com" }
+]
 
 [[env.production.d1_databases]]
 binding = "DB"
