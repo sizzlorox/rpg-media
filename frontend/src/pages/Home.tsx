@@ -246,31 +246,47 @@ export function HomePage() {
     }
   }, [user, writeLine])
 
-  const handleFeed = useCallback(async () => {
-    writeLine(cyan('Loading feed...'))
-
-    if (isAuthenticated) {
-      await loadHomeFeed()
-    } else {
+  const handleFeed = useCallback(async (subcommand?: string) => {
+    if (subcommand === 'discover') {
+      // Load discover feed for authenticated users
+      writeLine(cyan('Loading popular posts...'))
       await loadDiscoveryFeed()
-    }
 
-    // Display posts
-    if (posts.length === 0) {
-      writeLine(yellow('No posts to display'))
-      if (isAuthenticated) {
+      if (posts.length === 0) {
+        writeLine(yellow('No posts to display'))
+      } else {
         writeLine('')
-        writeLine('Follow some users to see their posts in your feed!')
-        writeLine('Or use /feed to see popular posts')
+        writeLine(green(`Showing ${posts.length} popular posts:`))
+        writeLine('')
+        posts.forEach((post) => {
+          writeLine(renderTerminalPost(post, true))
+        })
       }
     } else {
-      writeLine('')
-      writeLine(green(`Showing ${posts.length} posts:`))
-      writeLine('')
+      // Default behavior: home feed for authenticated, discover for unauthenticated
+      writeLine(cyan('Loading feed...'))
 
-      posts.forEach((post) => {
-        writeLine(renderTerminalPost(post, true))
-      })
+      if (isAuthenticated) {
+        await loadHomeFeed()
+      } else {
+        await loadDiscoveryFeed()
+      }
+
+      if (posts.length === 0) {
+        writeLine(yellow('No posts to display'))
+        if (isAuthenticated) {
+          writeLine('')
+          writeLine('Follow some users to see their posts in your feed!')
+          writeLine('Or use /feed discover to see popular posts')
+        }
+      } else {
+        writeLine('')
+        writeLine(green(`Showing ${posts.length} posts:`))
+        writeLine('')
+        posts.forEach((post) => {
+          writeLine(renderTerminalPost(post, true))
+        })
+      }
     }
   }, [isAuthenticated, posts, loadHomeFeed, loadDiscoveryFeed, writeLine])
 
@@ -295,7 +311,7 @@ export function HomePage() {
       writeLine('')
       writeLine(cyan('Social:'))
       writeLine('  /post <content>                  - Create a new post')
-      writeLine('  /feed                            - Refresh and view feed')
+      writeLine('  /feed [discover]                 - Refresh feed or view popular posts')
       writeLine('  /like <post_id>                  - Like a post')
       writeLine('  /comment <post_id> <text>        - Comment on a post')
       writeLine('  /follow <username>               - Follow a user')
@@ -351,7 +367,7 @@ export function HomePage() {
 
       const welcome = [
         green('═'.repeat(60)),
-        green('Welcome to RPG Social Media!'),
+        green('Welcome to Social Forge!'),
         xpBar,
         green('═'.repeat(60)),
         '',

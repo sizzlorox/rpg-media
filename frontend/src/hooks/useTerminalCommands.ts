@@ -13,7 +13,7 @@ interface UseTerminalCommandsOptions {
   onRegister?: (username: string, password: string) => Promise<void>
   onLogin?: (username: string, password: string) => Promise<void>
   onPost?: (content: string) => Promise<void>
-  onFeed?: () => Promise<void>
+  onFeed?: (subcommand?: string) => Promise<void>
   onProfile?: (username?: string) => Promise<void>
   onLike?: (postId: string) => Promise<void>
   onComment?: (postId: string, content: string) => Promise<void>
@@ -78,14 +78,15 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
     },
     {
       name: '/feed',
-      handler: async () => {
+      handler: async (args) => {
+        const subcommand = args[0] // Can be 'discover' or undefined
         if (options.onFeed) {
-          await options.onFeed()
+          await options.onFeed(subcommand)
         }
-        return 'Loading feed...'
+        return subcommand === 'discover' ? 'Loading popular posts...' : 'Loading feed...'
       },
-      description: 'View your home feed',
-      usage: '/feed',
+      description: 'View your home feed or discover popular posts',
+      usage: '/feed [discover]',
     },
     {
       name: '/profile',
