@@ -30,7 +30,7 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 
 # Environment variables (set via wrangler secret put or dashboard)
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
 
 # Secrets (set via: wrangler secret put <NAME>)
 # - JWT_SECRET (required)
