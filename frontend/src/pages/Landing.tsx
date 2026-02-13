@@ -1,0 +1,294 @@
+// Public landing page with man page aesthetic
+
+import { useState, useCallback, useEffect } from 'react'
+import { Terminal } from '../components/Terminal'
+import { renderManPagePost } from '../components/ManPagePost'
+import { usePublicFeed } from '../hooks/usePublicFeed'
+import { useAuth } from '../hooks/useAuth'
+import { apiClient } from '../services/api-client'
+import {
+  createManPageHeader,
+  createManPageFooter,
+  createSectionHeader,
+  indentText,
+  formatCommandSynopsis,
+  getManPageDate,
+} from '../utils/man-page-formatter'
+import { createDoubleLine } from '../utils/ascii-art'
+import { green, yellow, red, cyan, bold } from '../utils/ansi-colors'
+
+const WIDTH = 80
+
+export function Landing() {
+  const { recentPosts, trendingPosts, hasMore, loadMore, refresh } = usePublicFeed()
+  const { login, register, isAuthenticated } = useAuth()
+  const [terminalOutput, setTerminalOutput] = useState<string>('')
+
+  const writeLine = useCallback((text: string) => {
+    setTerminalOutput((prev) => prev + text + '\r\n')
+  }, [])
+
+  // Load initial feeds
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  // Build initial man page content
+  useEffect(() => {
+    if (recentPosts.length === 0 && trendingPosts.length === 0) {
+      return
+    }
+
+    const lines: string[] = []
+
+    // Top border
+    lines.push(green(createDoubleLine(WIDTH)))
+
+    // Header
+    lines.push(createManPageHeader('SOCIALFORGE', 1))
+    lines.push('')
+
+    // NAME section
+    lines.push(createSectionHeader('NAME'))
+    lines.push(indentText('socialforge - Level up through engagement'))
+    lines.push('')
+
+    // SYNOPSIS section
+    lines.push(createSectionHeader('SYNOPSIS'))
+    lines.push(indentText(formatCommandSynopsis('/register', '<username> <password>')))
+    lines.push(indentText(formatCommandSynopsis('/login', '<username> <password>')))
+    lines.push(indentText(formatCommandSynopsis('/post', '<content>')))
+    lines.push('')
+
+    // DESCRIPTION section
+    lines.push(createSectionHeader('DESCRIPTION'))
+    lines.push(indentText('A social media platform where your profile is your character. Earn XP'))
+    lines.push(indentText('through posts, likes, comments, and followers. Level up to unlock new'))
+    lines.push(indentText('features like media uploads, custom themes, and profile customization.'))
+    lines.push('')
+
+    // RECENT POSTS section
+    lines.push(createSectionHeader('RECENT POSTS'))
+    lines.push(indentText(green(createDoubleLine(WIDTH - 10))))
+    lines.push('')
+
+    if (recentPosts.length > 0) {
+      recentPosts.forEach((post) => {
+        lines.push(renderManPagePost(post, undefined, WIDTH))
+        lines.push('')
+      })
+
+      if (hasMore) {
+        lines.push(indentText(yellow('Use /feed more to load additional posts')))
+        lines.push('')
+      }
+    } else {
+      lines.push(indentText(yellow('No posts available')))
+      lines.push('')
+    }
+
+    // TRENDING THIS WEEK section
+    lines.push(createSectionHeader('TRENDING THIS WEEK'))
+    lines.push(indentText(green(createDoubleLine(WIDTH - 10))))
+    lines.push('')
+
+    if (trendingPosts.length > 0) {
+      trendingPosts.slice(0, 10).forEach((post, index) => {
+        lines.push(renderManPagePost(post, index + 1, WIDTH))
+        lines.push('')
+      })
+    } else {
+      lines.push(indentText(yellow('No trending posts this week')))
+      lines.push('')
+    }
+
+    // COMMANDS section
+    lines.push(createSectionHeader('COMMANDS'))
+    lines.push('')
+    lines.push(indentText(bold('Account Management')))
+    lines.push(indentText('/register <username> <password>    Create new account', 10))
+    lines.push(indentText('/login <username> <password>       Login to account', 10))
+    lines.push('')
+    lines.push(indentText(bold('Social Actions (requires authentication)')))
+    lines.push(indentText('/post <content>                    Create a post (+10 XP)', 10))
+    lines.push(indentText('/like <post_id>                    Like a post (+1 XP)', 10))
+    lines.push(indentText('/comment <post_id> <text>          Comment on post (+5 XP)', 10))
+    lines.push('')
+    lines.push(indentText(bold('Information')))
+    lines.push(indentText('/help                              Show all commands', 10))
+    lines.push(indentText('/levels                            View level progression', 10))
+    lines.push(indentText('/profile <username>                View user profile', 10))
+    lines.push(indentText('/feed more                         Load more posts', 10))
+    lines.push('')
+
+    // SEE ALSO section
+    lines.push(createSectionHeader('SEE ALSO'))
+    lines.push(indentText('GitHub: github.com/yourname/rpg-media'))
+    lines.push(indentText('Documentation: /help'))
+    lines.push('')
+
+    // Footer
+    lines.push(createManPageFooter('SOCIALFORGE', getManPageDate()))
+    lines.push(green(createDoubleLine(WIDTH)))
+    lines.push('')
+
+    setTerminalOutput(lines.join('\r\n'))
+  }, [recentPosts, trendingPosts, hasMore])
+
+  const handleCommand = useCallback(
+    async (command: string) => {
+      const parts = command.trim().split(' ')
+      const cmd = parts[0].toLowerCase()
+
+      // Mask password in echoed command
+      let displayCommand = command
+      if ((cmd === '/login' || cmd === '/register') && parts.length >= 3) {
+        const maskedParts = [...parts]
+        maskedParts[2] = '*'.repeat(parts[2].length)
+        displayCommand = maskedParts.join(' ')
+      }
+
+      writeLine(`> ${displayCommand}`)
+
+      try {
+        // Handle public commands
+        switch (cmd) {
+          case '/help':
+            writeLine(yellow('Available commands:'))
+            writeLine('')
+            writeLine(cyan('Account:'))
+            writeLine('  /register <username> <password>  - Create new account')
+            writeLine('  /login <username> <password>     - Login to account')
+            writeLine('')
+            writeLine(cyan('Information (public):'))
+            writeLine('  /help                            - Show this help')
+            writeLine('  /levels                          - View level thresholds')
+            writeLine('  /profile <username>              - View user profile')
+            writeLine('  /feed more                       - Load more posts')
+            writeLine('')
+            writeLine(cyan('Social Actions (requires authentication):'))
+            writeLine('  /post <content>                  - Create a post')
+            writeLine('  /like <post_id>                  - Like a post')
+            writeLine('  /comment <post_id> <text>        - Comment on a post')
+            writeLine('')
+            writeLine(yellow('Login or register to unlock social features!'))
+            break
+
+          case '/register':
+            if (parts.length < 3) {
+              writeLine(red('✗ Usage: /register <username> <password>'))
+              return
+            }
+            try {
+              await register(parts[1], parts[2])
+              writeLine(green(`✓ Account created: ${parts[1]}`))
+              writeLine(yellow('You are now logged in! Redirecting to feed...'))
+              // Auth state change will trigger transition to Home
+            } catch (error) {
+              writeLine(red(`✗ Failed to register: ${(error as Error).message}`))
+            }
+            break
+
+          case '/login':
+            if (parts.length < 3) {
+              writeLine(red('✗ Usage: /login <username> <password>'))
+              return
+            }
+            try {
+              await login(parts[1], parts[2])
+              writeLine(green(`✓ Logged in as ${parts[1]}`))
+              writeLine(yellow('Redirecting to feed...'))
+              // Auth state change will trigger transition to Home
+            } catch (error) {
+              writeLine(red(`✗ Failed to login: ${(error as Error).message}`))
+            }
+            break
+
+          case '/levels':
+            writeLine(cyan('Level Progression Table'))
+            writeLine(cyan('═'.repeat(60)))
+            writeLine('')
+
+            const result = await apiClient.get<{ thresholds: Array<{ level: number; xp_required: number; features_unlocked: string | null }> }>('/levels/thresholds')
+
+            writeLine(yellow('Level | XP Required | Feature Unlocked'))
+            writeLine('─'.repeat(60))
+
+            result.thresholds.forEach((threshold) => {
+              const levelStr = threshold.level.toString().padEnd(5)
+              const xpStr = threshold.xp_required.toString().padEnd(11)
+              const featureStr = threshold.features_unlocked || '-'
+              writeLine(`${green(levelStr)} | ${cyan(xpStr)} | ${yellow(featureStr)}`)
+            })
+
+            writeLine('')
+            writeLine(yellow('Earn XP by: Posting (+10), Liking (+1), Commenting (+5), Being Followed (+5)'))
+            break
+
+          case '/profile':
+            if (parts.length < 2) {
+              writeLine(red('✗ Usage: /profile <username>'))
+              return
+            }
+            try {
+              const profile = await apiClient.get<any>(`/users/${parts[1]}`)
+              const { renderASCIICharacterSheet } = await import('../components/ASCIICharacterSheet')
+              const sheet = renderASCIICharacterSheet(profile)
+              writeLine(sheet)
+            } catch (error) {
+              writeLine(red(`✗ Failed to load profile: ${(error as Error).message}`))
+            }
+            break
+
+          case '/feed':
+            if (parts[1] === 'more') {
+              writeLine(cyan('Loading more posts...'))
+              await loadMore()
+              writeLine(green('✓ Loaded more posts'))
+            } else {
+              writeLine(cyan('Refreshing feed...'))
+              await refresh()
+              writeLine(green('✓ Feed refreshed'))
+            }
+            break
+
+          // Auth-gated commands
+          case '/post':
+          case '/like':
+          case '/comment':
+          case '/follow':
+          case '/unfollow':
+            writeLine(red('✗ Authentication required. Use /login or /register to continue.'))
+            writeLine('')
+            writeLine(yellow('Commands:'))
+            writeLine('  /register <username> <password>  Create new account')
+            writeLine('  /login <username> <password>     Login to existing account')
+            break
+
+          case '/clear':
+            setTerminalOutput('')
+            break
+
+          default:
+            writeLine(red(`✗ Unknown command: ${cmd}`))
+            writeLine(yellow('Type /help to see available commands'))
+        }
+      } catch (error) {
+        writeLine(red(`✗ Error: ${(error as Error).message}`))
+      }
+    },
+    [writeLine, register, login, loadMore, refresh]
+  )
+
+  // If authenticated, this component should not be shown
+  // (App.tsx will handle the transition to Home)
+  if (isAuthenticated) {
+    return null
+  }
+
+  return (
+    <div className="landing-page">
+      <Terminal onCommand={handleCommand} initialContent={terminalOutput} />
+    </div>
+  )
+}
