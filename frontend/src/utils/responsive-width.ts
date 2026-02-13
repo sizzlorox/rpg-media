@@ -9,7 +9,8 @@
  */
 export function getResponsiveWidth(terminalCols: number): number {
   // Ensure width fits within terminal with 2-char margin
-  return Math.max(40, Math.min(terminalCols - 2, 80))
+  // Expands to fill actual terminal width (no artificial cap)
+  return Math.max(40, terminalCols - 2)
 }
 
 /**
