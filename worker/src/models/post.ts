@@ -6,8 +6,16 @@ import { Post, PostWithAuthor } from '../../../../shared/types'
 export class PostModel {
   constructor(private db: DatabaseClient) {}
 
-  // Get post by ID
+  // Get post by ID (supports short IDs like first 8 chars)
   async findById(id: string): Promise<Post | null> {
+    // If ID is less than full UUID length, treat as prefix search
+    if (id.length < 36) {
+      return await this.db.queryOne<Post>(
+        'SELECT * FROM posts WHERE id LIKE ? LIMIT 1',
+        `${id}%`
+      )
+    }
+
     return await this.db.queryOne<Post>(
       'SELECT * FROM posts WHERE id = ?',
       id

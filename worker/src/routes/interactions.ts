@@ -46,12 +46,12 @@ interactions.post('/posts/:id/like', authMiddleware, rateLimiter('like'), async 
       return c.json({ error: 'BadRequest', message: 'Cannot like your own post' }, 400)
     }
 
-    // Create like
+    // Create like (use full post ID from database result)
     const likeId = crypto.randomUUID()
     await likeModel.create({
       id: likeId,
       user_id: userId,
-      post_id: postId,
+      post_id: post.id,
     })
 
     // Award XP in batch: +1 to liker, +2 to post creator
@@ -154,12 +154,12 @@ interactions.post('/posts/:id/comments', authMiddleware, rateLimiter('comment'),
       return c.json({ error: 'NotFound', message: 'Post not found' }, 404)
     }
 
-    // Create comment
+    // Create comment (use full post ID from database result)
     const commentId = crypto.randomUUID()
     const comment = await commentModel.create({
       id: commentId,
       user_id: userId,
-      post_id: postId,
+      post_id: post.id,
       content: content.trim(),
     })
 
