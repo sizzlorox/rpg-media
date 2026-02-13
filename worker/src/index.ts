@@ -51,6 +51,21 @@ app.onError(errorHandler)
 // Export with Sentry wrapper
 export default {
   async fetch(request: Request, env: HonoEnv['Bindings'], ctx: ExecutionContext) {
+    // Handle OPTIONS preflight requests immediately without Sentry
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': 'https://rpg.apogeeforge.com',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Max-Age': '600',
+        },
+      })
+    }
+
+    // Wrap non-OPTIONS requests with Sentry
     return Sentry.withSentry(
       {
         dsn: env.SENTRY_DSN,
