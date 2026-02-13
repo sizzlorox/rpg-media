@@ -32,6 +32,11 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 [vars]
 ENVIRONMENT = "production"
 
+# Observability configuration
+[observability.logs]
+enabled = false
+invocation_logs = true
+
 # Secrets (set via: wrangler secret put <NAME>)
 # - JWT_SECRET (required)
 # - SENTRY_DSN (optional)
@@ -56,3 +61,7 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 
 [env.production.vars]
 ENVIRONMENT = "production"
+
+[env.production.observability.logs]
+enabled = false
+invocation_logs = true
