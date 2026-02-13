@@ -83,7 +83,7 @@ export default {
               return event
             },
           },
-          () => app.fetch(request, env, ctx)
+          async () => await app.fetch(request, env, ctx)
         )
       }
 
