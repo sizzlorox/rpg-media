@@ -15,7 +15,7 @@ import type { CreatePostRequest } from '../../../shared/types'
 import '../styles/terminal.css'
 
 export function HomePage() {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, login, register } = useAuth()
   const { posts, loadDiscoveryFeed, loadHomeFeed } = useFeed()
   const { xpProgress, loadXPProgress, refreshCharacter } = useCharacter()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
@@ -33,6 +33,35 @@ export function HomePage() {
       loadDiscoveryFeed()
     }
   }, [isAuthenticated, loadHomeFeed, loadDiscoveryFeed, loadXPProgress])
+
+  const handleRegister = useCallback(
+    async (username: string, password: string) => {
+      try {
+        await register(username, password)
+        writeLine(green(`✓ Account created: ${username}`))
+        writeLine(yellow('You are now logged in!'))
+        await loadHomeFeed()
+        await loadXPProgress()
+      } catch (error) {
+        writeLine(red(`✗ Failed to register: ${(error as Error).message}`))
+      }
+    },
+    [register, writeLine, loadHomeFeed, loadXPProgress]
+  )
+
+  const handleLogin = useCallback(
+    async (username: string, password: string) => {
+      try {
+        await login(username, password)
+        writeLine(green(`✓ Logged in as ${username}`))
+        await loadHomeFeed()
+        await loadXPProgress()
+      } catch (error) {
+        writeLine(red(`✗ Failed to login: ${(error as Error).message}`))
+      }
+    },
+    [login, writeLine, loadHomeFeed, loadXPProgress]
+  )
 
   const handlePost = useCallback(
     async (content: string) => {
@@ -217,6 +246,8 @@ export function HomePage() {
   }, [isAuthenticated, posts, loadHomeFeed, loadDiscoveryFeed, writeLine])
 
   const { executeCommand } = useTerminalCommands({
+    onRegister: handleRegister,
+    onLogin: handleLogin,
     onPost: handlePost,
     onFeed: handleFeed,
     onLike: handleLike,
@@ -227,15 +258,28 @@ export function HomePage() {
     onUnlocks: handleUnlocks,
     onHelp: () => {
       writeLine(yellow('Available commands:'))
-      writeLine('  /post <content>       - Create a new post')
-      writeLine('  /feed                 - Refresh and view feed')
-      writeLine('  /like <post_id>       - Like a post')
-      writeLine('  /follow <username>    - Follow a user')
-      writeLine('  /unfollow <username>  - Unfollow a user')
-      writeLine('  /levels               - View level progression table')
-      writeLine('  /unlocks              - View feature unlock roadmap')
-      writeLine('  /profile [user]       - View character sheet')
-      writeLine('  /help                 - Show this help')
+      writeLine('')
+      writeLine(cyan('Account:'))
+      writeLine('  /register <username> <password>  - Create new account')
+      writeLine('  /login <username> <password>     - Login to account')
+      writeLine('')
+      writeLine(cyan('Social:'))
+      writeLine('  /post <content>                  - Create a new post')
+      writeLine('  /feed                            - Refresh and view feed')
+      writeLine('  /like <post_id>                  - Like a post')
+      writeLine('  /comment <post_id> <text>        - Comment on a post')
+      writeLine('  /follow <username>               - Follow a user')
+      writeLine('  /unfollow <username>             - Unfollow a user')
+      writeLine('')
+      writeLine(cyan('Progression:'))
+      writeLine('  /profile [username]              - View character sheet')
+      writeLine('  /stats                           - View your stats')
+      writeLine('  /levels                          - View level thresholds')
+      writeLine('  /unlocks                         - View feature unlocks')
+      writeLine('')
+      writeLine(cyan('Utility:'))
+      writeLine('  /help                            - Show this help')
+      writeLine('  /clear                           - Clear terminal')
     },
     onClear: () => {
       setTerminalOutput('')

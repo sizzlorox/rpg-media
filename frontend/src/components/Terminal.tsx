@@ -16,6 +16,7 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const commandBufferRef = useRef<string>('')
+  const passwordMaskIndexRef = useRef<number>(-1) // Track where password starts
 
   useEffect(() => {
     if (!terminalRef.current) return
@@ -99,6 +100,7 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
         }
 
         commandBufferRef.current = ''
+        passwordMaskIndexRef.current = -1 // Reset password masking
         term.write('> ')
 
         // Keep terminal focused
@@ -109,12 +111,34 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
         if (commandBufferRef.current.length > 0) {
           commandBufferRef.current = commandBufferRef.current.slice(0, -1)
           term.write('\b \b')
+
+          // Reset password mask if we backspace before it
+          if (passwordMaskIndexRef.current >= 0 && commandBufferRef.current.length < passwordMaskIndexRef.current) {
+            passwordMaskIndexRef.current = -1
+          }
         }
       }
       // Printable characters
       else if (code >= 32 && code <= 126) {
         commandBufferRef.current += data
-        term.write(data)
+
+        // Check if we need to start masking password
+        if (data === ' ' && passwordMaskIndexRef.current === -1) {
+          const parts = commandBufferRef.current.trim().split(' ')
+          const cmd = parts[0].toLowerCase()
+
+          // If this is the second space in /login or /register, start masking
+          if ((cmd === '/login' || cmd === '/register') && parts.length === 2) {
+            passwordMaskIndexRef.current = commandBufferRef.current.length
+          }
+        }
+
+        // Write masked character if in password mode
+        if (passwordMaskIndexRef.current >= 0 && commandBufferRef.current.length > passwordMaskIndexRef.current) {
+          term.write('*')
+        } else {
+          term.write(data)
+        }
       }
     })
 
