@@ -5,13 +5,14 @@ import { Terminal } from '../components/Terminal'
 import { renderTerminalPost } from '../components/TerminalPost'
 import { renderTerminalXPBar } from '../components/TerminalXPBar'
 import { renderLevelUpAnimation, getUnlockedFeatures } from '../components/LevelUpAnimation'
+import { renderCommentsView } from '../components/TerminalComment'
 import { useAuth } from '../hooks/useAuth'
 import { useFeed } from '../hooks/useFeed'
 import { useCharacter } from '../hooks/useCharacter'
 import { useTerminalCommands } from '../hooks/useTerminalCommands'
 import { apiClient } from '../services/api-client'
 import { green, yellow, red, cyan, magenta } from '../utils/ansi-colors'
-import type { CreatePostRequest } from '../../../shared/types'
+import type { CreatePostRequest, CommentWithAuthor } from '../../../shared/types'
 import '../styles/terminal.css'
 
 export function HomePage() {
@@ -230,6 +231,22 @@ export function HomePage() {
     }
   }, [writeLine])
 
+  const handleShow = useCallback(async (postId: string) => {
+    try {
+      writeLine(cyan(`Loading comments for post ${postId.slice(0, 8)}...`))
+      writeLine('')
+
+      const result = await apiClient.get<{ comments: CommentWithAuthor[] }>(
+        `/posts/${postId}/comments`
+      )
+
+      const commentsView = renderCommentsView(postId, result.comments)
+      writeLine(commentsView)
+    } catch (error) {
+      writeLine(red(`✗ Failed to load comments: ${(error as Error).message}`))
+    }
+  }, [writeLine])
+
   const handleUnlocks = useCallback(async () => {
     if (!user) {
       writeLine(yellow('Log in to see your feature unlock progress'))
@@ -297,6 +314,7 @@ export function HomePage() {
     onFeed: handleFeed,
     onLike: handleLike,
     onComment: handleComment,
+    onShow: handleShow,
     onFollow: handleFollow,
     onUnfollow: handleUnfollow,
     onLevels: handleLevels,
@@ -314,6 +332,7 @@ export function HomePage() {
       writeLine('  /feed [discover]                 - Refresh feed or view popular posts')
       writeLine('  /like <post_id>                  - Like a post')
       writeLine('  /comment <post_id> <text>        - Comment on a post')
+      writeLine('  /show <post_id>                  - View comments on a post')
       writeLine('  /follow <username>               - Follow a user')
       writeLine('  /unfollow <username>             - Unfollow a user')
       writeLine('')

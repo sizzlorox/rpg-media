@@ -51,6 +51,39 @@ TypeScript 5.x with strict mode enabled: Follow standard conventions
 - Command-line style navigation (e.g., `> /post Hello world!`)
 - Optional CRT effects (scanlines, glow)
 
+### Responsive Design Requirements
+**CRITICAL:** ALL UI changes, features, and bugfixes MUST be responsive across all devices.
+
+**Target Breakpoints:**
+- **Mobile**: ≤640px (iPhone, Android phones)
+- **Tablet**: 641-1024px (iPad, Android tablets)
+- **Desktop**: >1024px (laptops, monitors)
+
+**Required Testing:**
+- Test at all three breakpoints before considering work complete
+- Verify no content cutoff at viewport edges
+- Ensure touch targets are adequate on mobile (min 44x44px)
+- Check that terminal scrolling works properly on all devices
+
+**Responsive Patterns to Follow:**
+1. **Viewport Heights**: Use `calc(100vh - Npx)` to account for padding, never raw `vh` units
+2. **Safe Areas**: Support `env(safe-area-inset-*)` for notched devices (iPhone X+)
+3. **Mobile Browser Bars**: Use `-webkit-fill-available` for dynamic address bar handling
+4. **Font Sizes**: Scale down on mobile (10px), medium on tablet (12px), full on desktop (14px)
+5. **Terminal Dimensions**: Adjust rows/cols for device (`minCols: 40/60/80`, `minRows: 24/28/30`)
+6. **Touch vs Click**: Consider touch interactions on mobile (no hover states required)
+
+**Files Containing Responsive Logic:**
+- `frontend/src/utils/terminal-responsive.ts` - Breakpoint configuration
+- `frontend/src/styles/terminal.css` - Responsive CSS and media queries
+- `frontend/src/components/Terminal.tsx` - Terminal viewport handling
+
+**When Adding New Features:**
+- Check terminal-responsive.ts for current breakpoint settings
+- Add responsive CSS in @media queries if styling changes
+- Test on mobile viewport in browser DevTools
+- Ensure xterm.js FitAddon recalculates on window resize
+
 ### Constitution Compliance
 All code must follow the 7 principles in `.specify/memory/constitution.md`:
 1. Horizontal Database Scaling (per-user/tenant databases)

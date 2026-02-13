@@ -22,7 +22,7 @@ export const RESPONSIVE_BREAKPOINTS: ResponsiveBreakpoint[] = [
       minRows: 24,
       minCols: 40,
       padding: '8px',
-      height: '95vh'
+      height: 'calc(100vh - 16px)' // Account for padding and safe areas
     },
     logoType: 'compact'
   },
@@ -33,7 +33,7 @@ export const RESPONSIVE_BREAKPOINTS: ResponsiveBreakpoint[] = [
       minRows: 28,
       minCols: 60,
       padding: '12px',
-      height: '98vh'
+      height: 'calc(100vh - 24px)' // Account for padding
     },
     logoType: 'medium'
   },
@@ -44,7 +44,7 @@ export const RESPONSIVE_BREAKPOINTS: ResponsiveBreakpoint[] = [
       minRows: 30,
       minCols: 80,
       padding: '20px',
-      height: '100vh'
+      height: 'calc(100vh - 40px)' // Account for padding
     },
     logoType: 'full'
   }
