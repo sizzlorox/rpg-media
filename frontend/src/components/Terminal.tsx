@@ -68,7 +68,7 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
     // Display welcome message
     term.write('\x1b[32m') // Green color
     term.write('╔══════════════════════════════════════════════════════════════════╗\r\n')
-    term.write('║   RPG SOCIAL MEDIA - TERMINAL EDITION                           ║\r\n')
+    term.write('║                        SOCIAL FORGE                              ║\r\n')
     term.write('║   Level up through engagement. Your profile is your character.  ║\r\n')
     term.write('╚══════════════════════════════════════════════════════════════════╝\r\n')
     term.write('\r\n')

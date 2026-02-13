@@ -1,6 +1,6 @@
-# RPG Social Media Platform
+# Social Forge
 
-A gamified social media platform with RPG mechanics, built with Cloudflare Workers, D1, and React. Users earn XP from interactions, level up to unlock features, and view profiles as ASCII character sheets—all in a retro terminal interface.
+**Level up through engagement.** A gamified social media platform with RPG mechanics, built with Cloudflare Workers, D1, and React. Users earn XP from interactions, level up to unlock features, and view profiles as ASCII character sheets—all in a retro terminal interface.
 
 ## Features
 

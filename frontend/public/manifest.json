@@ -1,0 +1,20 @@
+{
+  "name": "Social Forge",
+  "short_name": "Social Forge",
+  "description": "Level up through engagement in this RPG-style social media platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "games"],
+  "screenshots": []
+}
