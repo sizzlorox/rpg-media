@@ -1,6 +1,6 @@
 // Public landing page with man page aesthetic
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Terminal } from '../components/Terminal'
 import { renderManPagePost } from '../components/ManPagePost'
 import { usePublicFeed } from '../hooks/usePublicFeed'
@@ -16,24 +16,27 @@ import {
 } from '../utils/man-page-formatter'
 import { createDoubleLine } from '../utils/ascii-art'
 import { green, yellow, red, cyan, bold } from '../utils/ansi-colors'
-
-const WIDTH = 80
+import { getResponsiveWidth } from '../utils/responsive-width'
 
 export function Landing() {
   const { recentPosts, trendingPosts, isLoading, error, hasMore, loadMore, refresh } = usePublicFeed()
   const { login, register, isAuthenticated } = useAuth()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
+  const [terminalCols, setTerminalCols] = useState<number>(80) // Reactive terminal width for rebuilding
+  const terminalColsRef = useRef<number>(80) // Stores current terminal width
 
   const writeLine = useCallback((text: string) => {
     setTerminalOutput((prev) => prev + text + '\r\n')
   }, [])
 
-  // Build initial man page content
+  // Build initial man page content (responsive)
   useEffect(() => {
     const lines: string[] = []
+    const cols = terminalCols
+    const width = getResponsiveWidth(cols)
 
     // Top border
-    lines.push(green(createDoubleLine(WIDTH)))
+    lines.push(green(createDoubleLine(width)))
 
     // Header
     lines.push(createManPageHeader('SOCIALFORGE', 1))
@@ -60,7 +63,7 @@ export function Landing() {
 
     // RECENT POSTS section
     lines.push(createSectionHeader('RECENT POSTS'))
-    lines.push(indentText(green(createDoubleLine(WIDTH - 10))))
+    lines.push(indentText(green(createDoubleLine(Math.max(width - 10, 20)))))
     lines.push('')
 
     // Handle loading state
@@ -83,7 +86,7 @@ export function Landing() {
     // Display posts
     else {
       recentPosts.forEach((post) => {
-        lines.push(renderManPagePost(post, undefined, WIDTH))
+        lines.push(renderManPagePost(post, undefined, cols))
         lines.push('')
       })
 
@@ -95,7 +98,7 @@ export function Landing() {
 
     // TRENDING THIS WEEK section
     lines.push(createSectionHeader('TRENDING THIS WEEK'))
-    lines.push(indentText(green(createDoubleLine(WIDTH - 10))))
+    lines.push(indentText(green(createDoubleLine(Math.max(width - 10, 20)))))
     lines.push('')
 
     if (isLoading) {
@@ -106,7 +109,7 @@ export function Landing() {
       lines.push('')
     } else if (trendingPosts.length > 0) {
       trendingPosts.slice(0, 10).forEach((post, index) => {
-        lines.push(renderManPagePost(post, index + 1, WIDTH))
+        lines.push(renderManPagePost(post, index + 1, cols))
         lines.push('')
       })
     } else {
@@ -141,14 +144,20 @@ export function Landing() {
 
     // Footer
     lines.push(createManPageFooter('SOCIALFORGE', getManPageDate()))
-    lines.push(green(createDoubleLine(WIDTH)))
+    lines.push(green(createDoubleLine(width)))
     lines.push('')
 
     setTerminalOutput(lines.join('\r\n'))
-  }, [recentPosts, trendingPosts, isLoading, error, hasMore])
+  }, [recentPosts, trendingPosts, isLoading, error, hasMore, terminalCols])
 
   const handleCommand = useCallback(
-    async (command: string) => {
+    async (command: string, cols: number = 80) => {
+      // Update terminal width if it changed (triggers man page rebuild)
+      if (terminalColsRef.current !== cols) {
+        terminalColsRef.current = cols
+        setTerminalCols(cols)
+      }
+
       const parts = command.trim().split(' ')
       const cmd = parts[0].toLowerCase()
 
@@ -245,7 +254,7 @@ export function Landing() {
             try {
               const profile = await apiClient.get<any>(`/users/${parts[1]}`)
               const { renderASCIICharacterSheet } = await import('../components/ASCIICharacterSheet')
-              const sheet = renderASCIICharacterSheet(profile)
+              const sheet = renderASCIICharacterSheet(profile, cols)
               writeLine(sheet)
             } catch (error) {
               writeLine(red(`✗ Failed to load profile: ${(error as Error).message}`))
