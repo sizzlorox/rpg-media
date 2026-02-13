@@ -21,9 +21,9 @@ export async function authMiddleware(c: Context<HonoEnv>, next: Next) {
   }
 
   try {
-    // Verify JWT
+    // Verify JWT with HS256 algorithm
     console.log('Auth middleware - verifying token')
-    const payload = await verify(token, c.env.JWT_SECRET) as JWTPayload
+    const payload = await verify(token, c.env.JWT_SECRET, 'HS256') as JWTPayload
 
     console.log('Auth middleware - token valid for user:', payload.username)
 
@@ -49,7 +49,7 @@ export async function optionalAuth(c: Context<HonoEnv>, next: Next) {
 
   if (token) {
     try {
-      const payload = await verify(token, c.env.JWT_SECRET) as JWTPayload
+      const payload = await verify(token, c.env.JWT_SECRET, 'HS256') as JWTPayload
       c.set('userId', payload.sub)
       c.set('username', payload.username)
       c.set('level', payload.level)
