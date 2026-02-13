@@ -288,7 +288,19 @@ export function HomePage() {
 
   const handleCommand = useCallback(
     async (command: string) => {
-      writeLine(`> ${command}`)
+      // Mask password in echoed command
+      let displayCommand = command
+      const parts = command.trim().split(' ')
+      const cmd = parts[0].toLowerCase()
+
+      if ((cmd === '/login' || cmd === '/register') && parts.length >= 3) {
+        // Replace password (3rd argument) with asterisks
+        const maskedParts = [...parts]
+        maskedParts[2] = '*'.repeat(parts[2].length)
+        displayCommand = maskedParts.join(' ')
+      }
+
+      writeLine(`> ${displayCommand}`)
       const result = await executeCommand(command)
       if (result) {
         writeLine(result)
