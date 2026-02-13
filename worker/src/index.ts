@@ -29,14 +29,13 @@ app.use('*', cors({
 app.use('*', analyticsLogger)
 
 // Routes
-app.route('/api/auth', authRoutes)
-app.route('/api/posts', postsRoutes)
-app.route('/api/users', usersRoutes)
-app.route('/api/feed', feedRoutes)
-app.route('/api', interactionsRoutes)
-app.route('/api/xp', xpRoutes)
-app.route('/api/levels', levelsRoutes)
-app.route('/api/media', mediaRoutes)
+app.route('/auth', authRoutes)
+app.route('/posts', postsRoutes)
+app.route('/users', usersRoutes)
+app.route('/feed', feedRoutes)
+app.route('/', interactionsRoutes)
+app.route('/xp', xpRoutes)
+app.route('/levels', levelsRoutes)
 app.route('/media', mediaRoutes)
 
 // Health check endpoint
