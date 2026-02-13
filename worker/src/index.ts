@@ -20,7 +20,15 @@ const app = new Hono<HonoEnv>()
 
 // Middleware - CORS with credentials support
 app.use('*', cors({
-  origin: (origin) => origin, // Allow all origins (adjust for production)
+  origin: (origin) => {
+    // Allow production frontend and localhost for development
+    const allowedOrigins = [
+      'https://rpg.apogeeforge.com',
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ]
+    return allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
+  },
   credentials: true,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
