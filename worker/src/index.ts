@@ -1,7 +1,6 @@
 // Cloudflare Worker Entry Point
-// RPG Social Media Platform - Hono API with Sentry Error Tracking
+// RPG Social Media Platform - Hono API
 
-import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { HonoEnv } from './lib/types'
@@ -48,10 +47,10 @@ app.get('/health', (c) => {
 // Error handler (must be last)
 app.onError(errorHandler)
 
-// Export with Sentry wrapper
+// Export worker
 export default {
   async fetch(request: Request, env: HonoEnv['Bindings'], ctx: ExecutionContext) {
-    // Handle OPTIONS preflight requests immediately without Sentry
+    // Handle OPTIONS preflight requests
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
@@ -63,27 +62,6 @@ export default {
           'Access-Control-Max-Age': '600',
         },
       })
-    }
-
-    // Initialize Sentry if DSN is provided
-    if (env.SENTRY_DSN) {
-      try {
-        Sentry.init({
-          dsn: env.SENTRY_DSN,
-          environment: env.ENVIRONMENT || 'production',
-          tracesSampleRate: 0.1,
-          beforeSend(event) {
-            // Scrub sensitive data from error events
-            if (event.request?.headers) {
-              delete event.request.headers['Authorization']
-              delete event.request.headers['Cookie']
-            }
-            return event
-          },
-        })
-      } catch (error) {
-        console.error('Sentry initialization failed:', error)
-      }
     }
 
     // Process request with Hono

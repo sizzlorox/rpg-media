@@ -12,11 +12,16 @@
     "test:integration": "vitest --config vitest.integration.config.ts",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["cloudflare", "workers", "hono", "rpg", "social-media"],
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "hono",
+    "rpg",
+    "social-media"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@sentry/cloudflare": "^8.55.0",
     "bcryptjs": "^3.0.3",
     "hono": "^4.11.9"
   },

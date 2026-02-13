@@ -1,6 +1,5 @@
-// Centralized error handling middleware with Sentry integration
+// Centralized error handling middleware
 
-import * as Sentry from '@sentry/cloudflare'
 import { Context } from 'hono'
 import { HonoEnv } from '../lib/types'
 import { logError } from '../lib/logger'
@@ -13,18 +12,6 @@ export async function errorHandler(err: Error, c: Context<HonoEnv>) {
     path: c.req.path,
     method: c.req.method,
     userId: c.get('userId'),
-  })
-
-  // Capture in Sentry
-  Sentry.captureException(err, {
-    tags: {
-      path: c.req.path,
-      method: c.req.method,
-    },
-    user: c.get('userId') ? {
-      id: c.get('userId'),
-      username: c.get('username'),
-    } : undefined,
   })
 
   // Determine status code

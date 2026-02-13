@@ -39,8 +39,6 @@ invocation_logs = true
 
 # Secrets (set via: wrangler secret put <NAME>)
 # - JWT_SECRET (required)
-# - SENTRY_DSN (optional)
-# - PUBLIC_URL (optional)
 
 # Production environment (uses same bindings as default)
 [env.production]
