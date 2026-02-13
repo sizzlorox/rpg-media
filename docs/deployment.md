@@ -62,7 +62,20 @@ bucket_name = "rpg-media-uploads-production"
 ### 1.3 Create KV Namespace (Rate Limiting)
 
 ```bash
-wrangler kv:namespace create RATE_LIMIT_KV --env production
+wrangler kv namespace create RATE_LIMIT_KV
+```
+
+**Important**: The command is `kv namespace` (with space), not `kv:namespace`.
+
+This will output something like:
+
+```
+✅ Successfully created KV namespace RATE_LIMIT_KV
+
+Add the following to your wrangler.toml:
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "12345678901234567890123456789012"
 ```
 
 Update `wrangler.toml`:
@@ -148,8 +161,7 @@ wrangler d1 execute rpg-social-media-production \
 
 # Verify level thresholds
 wrangler d1 execute rpg-social-media-production \
-  --command="SELECT level, xp_required, feature_unlocked FROM level_thresholds ORDER BY level" \
-  --env production
+  --command="SELECT level, xp_required, features_unlocked FROM level_thresholds ORDER BY level"
 ```
 
 **Expected Tables**:
@@ -436,6 +448,7 @@ wrangler d1 execute rpg-social-media-production \
 1. Verify KV namespace ID in wrangler.toml
 2. Check binding name matches code (`RATE_LIMIT_KV`)
 3. Ensure KV namespace is in same account
+4. Verify KV namespace was created with: `wrangler kv namespace list`
 
 ### Issue: Images not uploading
 

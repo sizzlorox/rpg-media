@@ -44,7 +44,7 @@ wrangler d1 create rpg-social-db
 wrangler r2 bucket create rpg-social-media
 
 # Create KV namespace for rate limiting
-wrangler kv:namespace create "RATE_LIMIT_KV"
+wrangler kv namespace create "RATE_LIMIT_KV"
 ```
 
 ### Configure Sentry & Analytics

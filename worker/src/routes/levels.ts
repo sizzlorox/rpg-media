@@ -10,7 +10,7 @@ const levels = new Hono<HonoEnv>()
 interface LevelThreshold {
   level: number
   xp_required: number
-  feature_unlocked: string | null
+  features_unlocked: string | null
 }
 
 // GET /api/levels/thresholds - Get XP thresholds for all levels
@@ -20,7 +20,7 @@ levels.get('/thresholds', async (c) => {
 
     // Query level_thresholds table
     const thresholds = await db.query<LevelThreshold>(
-      `SELECT level, xp_required, feature_unlocked
+      `SELECT level, xp_required, features_unlocked
        FROM level_thresholds
        ORDER BY level ASC`
     )

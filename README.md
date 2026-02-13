@@ -71,7 +71,7 @@ npm install
 
 4. **Create KV Namespace** (for rate limiting):
    ```bash
-   wrangler kv:namespace create RATE_LIMIT_KV
+   wrangler kv namespace create RATE_LIMIT_KV
    # Copy the id to wrangler.toml
    ```
 

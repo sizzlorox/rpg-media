@@ -1,34 +1,38 @@
 name = "rpg-social-worker"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
 
 # D1 Database binding
+# Uncomment and fill in database_id after creating with: wrangler d1 create rpg-social-media-production
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "rpg-social-media-production"
+# database_id = "YOUR_DATABASE_ID_HERE"
 [[d1_databases]]
 binding = "DB"
-database_name = "rpg-social-db"
-database_id = ""  # Will be filled after creating D1 database
+database_name = "rpg-social-media-production"
+database_id = "cf50ebd0-04f0-41cc-910b-e6f1fa3facec"
 
 # R2 Storage binding for media uploads (level 3+)
 [[r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "rpg-social-media"
+binding = "MEDIA_BUCKET"
+bucket_name = "rpg-media-uploads-production"
 
 # KV Namespace for rate limiting
+# Uncomment and fill in id after creating with: wrangler kv namespace create RATE_LIMIT_KV
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "YOUR_KV_ID_HERE"
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = ""  # Will be filled after creating KV namespace
+id = "8e59389f021b4ea48f3e71333b1ac39e"
 
 # Environment variables (set via wrangler secret put or dashboard)
 [vars]
 ENVIRONMENT = "development"
 
 # Secrets (set via: wrangler secret put <NAME>)
-# - JWT_SECRET
-# - SENTRY_DSN
-
-# Build configuration
-[build]
-command = "npm run build"
-
-# Compatibility flags
-[compatibility_flags]
+# - JWT_SECRET (required)
+# - SENTRY_DSN (optional)
+# - PUBLIC_URL (optional)
