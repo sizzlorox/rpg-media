@@ -36,7 +36,7 @@ levels.get('/thresholds', async (c) => {
 
 // GET /api/levels/calculate/:xp - Calculate level from XP (utility endpoint)
 levels.get('/calculate/:xp', async (c) => {
-  const xpParam = c.param('xp')
+  const xpParam = c.req.param('xp')
   const xp = parseInt(xpParam, 10)
 
   if (isNaN(xp) || xp < 0) {

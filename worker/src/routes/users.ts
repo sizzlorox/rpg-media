@@ -12,7 +12,7 @@ const users = new Hono<HonoEnv>()
 
 // GET /api/users/:username - Get user profile (character sheet)
 users.get('/:username', optionalAuth, async (c) => {
-  const username = c.param('username')
+  const username = c.req.param('username')
   const currentUserId = c.get('userId') // Optional
 
   try {
@@ -39,7 +39,7 @@ users.get('/:username', optionalAuth, async (c) => {
 
 // GET /api/users/:username/posts - Get user's post history
 users.get('/:username/posts', optionalAuth, async (c) => {
-  const username = c.param('username')
+  const username = c.req.param('username')
   const currentUserId = c.get('userId') // Optional - for is_liked_by_user flag
 
   try {
@@ -181,7 +181,7 @@ users.patch('/me/profile', authMiddleware, async (c) => {
 
 // GET /api/users/:username/followers - Get user's followers list
 users.get('/:username/followers', optionalAuth, async (c) => {
-  const username = c.param('username')
+  const username = c.req.param('username')
   const limit = parseInt(c.req.query('limit') || '50')
   const offset = parseInt(c.req.query('offset') || '0')
 
@@ -227,7 +227,7 @@ users.get('/:username/followers', optionalAuth, async (c) => {
 
 // GET /api/users/:username/following - Get users that this user follows
 users.get('/:username/following', optionalAuth, async (c) => {
-  const username = c.param('username')
+  const username = c.req.param('username')
   const limit = parseInt(c.req.query('limit') || '50')
   const offset = parseInt(c.req.query('offset') || '0')
 

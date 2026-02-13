@@ -16,7 +16,7 @@ const interactions = new Hono<HonoEnv>()
 
 // POST /api/posts/:id/like - Like a post
 interactions.post('/posts/:id/like', authMiddleware, rateLimiter('like'), async (c) => {
-  const postId = c.param('id')
+  const postId = c.req.param('id')
   const userId = c.get('userId')
 
   if (!userId) {
@@ -90,7 +90,7 @@ interactions.post('/posts/:id/like', authMiddleware, rateLimiter('like'), async 
 
 // DELETE /api/posts/:id/like - Unlike a post
 interactions.delete('/posts/:id/like', authMiddleware, async (c) => {
-  const postId = c.param('id')
+  const postId = c.req.param('id')
   const userId = c.get('userId')
 
   if (!userId) {
@@ -124,7 +124,7 @@ interactions.delete('/posts/:id/like', authMiddleware, async (c) => {
 
 // POST /api/posts/:id/comments - Add comment to post
 interactions.post('/posts/:id/comments', authMiddleware, rateLimiter('comment'), async (c) => {
-  const postId = c.param('id')
+  const postId = c.req.param('id')
   const userId = c.get('userId')
 
   if (!userId) {
@@ -210,7 +210,7 @@ interactions.post('/posts/:id/comments', authMiddleware, rateLimiter('comment'),
 
 // GET /api/posts/:id/comments - Get comments for a post
 interactions.get('/posts/:id/comments', async (c) => {
-  const postId = c.param('id')
+  const postId = c.req.param('id')
 
   try {
     const db = createDatabaseClient(c.env)
@@ -237,7 +237,7 @@ interactions.get('/posts/:id/comments', async (c) => {
 
 // POST /api/users/:username/follow - Follow a user
 interactions.post('/users/:username/follow', authMiddleware, async (c) => {
-  const targetUsername = c.param('username')
+  const targetUsername = c.req.param('username')
   const followerId = c.get('userId')
 
   if (!followerId) {
@@ -300,7 +300,7 @@ interactions.post('/users/:username/follow', authMiddleware, async (c) => {
 
 // DELETE /api/users/:username/follow - Unfollow a user
 interactions.delete('/users/:username/follow', authMiddleware, async (c) => {
-  const targetUsername = c.param('username')
+  const targetUsername = c.req.param('username')
   const followerId = c.get('userId')
 
   if (!followerId) {

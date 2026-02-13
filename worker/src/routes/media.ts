@@ -83,7 +83,7 @@ media.post('/upload-url', authMiddleware, async (c) => {
 media.put('/upload/:key', authMiddleware, async (c) => {
   const userId = c.get('userId')
   const level = c.get('level')
-  const key = c.param('key')
+  const key = c.req.param('key')
 
   if (!userId || level === undefined) {
     return c.json({ error: 'Unauthorized', message: 'Not authenticated' }, 401)
@@ -142,7 +142,7 @@ media.put('/upload/:key', authMiddleware, async (c) => {
 
 // GET /media/:key - Serve image from R2
 media.get('/:key{.+}', async (c) => {
-  const key = c.param('key')
+  const key = c.req.param('key')
 
   try {
     const bucket = c.env.MEDIA_BUCKET

@@ -108,7 +108,7 @@ posts.post('/', authMiddleware, rateLimiter('post'), async (c) => {
 
 // GET /api/posts/:id - Get post by ID
 posts.get('/:id', async (c) => {
-  const postId = c.param('id')
+  const postId = c.req.param('id')
   const userId = c.get('userId') // Optional - for is_liked_by_user flag
 
   try {
@@ -145,7 +145,7 @@ posts.get('/:id', async (c) => {
 
 // DELETE /api/posts/:id - Delete own post
 posts.delete('/:id', authMiddleware, async (c) => {
-  const postId = c.param('id')
+  const postId = c.req.param('id')
   const userId = c.get('userId')
 
   if (!userId) {
