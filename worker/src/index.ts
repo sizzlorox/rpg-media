@@ -18,8 +18,15 @@ import mediaRoutes from './routes/media'
 
 const app = new Hono<HonoEnv>()
 
-// Middleware
-app.use('*', cors())
+// Middleware - CORS with credentials support
+app.use('*', cors({
+  origin: (origin) => origin, // Allow all origins (adjust for production)
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 600,
+}))
 app.use('*', analyticsLogger)
 
 // Routes
