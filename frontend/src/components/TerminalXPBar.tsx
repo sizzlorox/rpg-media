@@ -1,6 +1,7 @@
 // Terminal XP progress bar component
 
 import { green, cyan, yellow } from '../utils/ansi-colors'
+import { getResponsiveProgressBarWidth } from '../utils/responsive-width'
 
 interface TerminalXPBarProps {
   level: number
@@ -26,8 +27,14 @@ export function TerminalXPBar({ level, totalXP, xpForNextLevel, progressPercent 
   )
 }
 
-export function renderTerminalXPBar(level: number, totalXP: number, xpForNextLevel: number, progressPercent: number): string {
-  const barWidth = 40
+export function renderTerminalXPBar(
+  level: number,
+  totalXP: number,
+  xpForNextLevel: number,
+  progressPercent: number,
+  terminalCols: number = 80
+): string {
+  const barWidth = getResponsiveProgressBarWidth(terminalCols)
   const filledBlocks = Math.floor((progressPercent / 100) * barWidth)
   const emptyBlocks = barWidth - filledBlocks
 

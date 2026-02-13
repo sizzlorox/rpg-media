@@ -2,6 +2,7 @@
 
 import { green, cyan, yellow, magenta } from '../utils/ansi-colors'
 import { renderTerminalXPBar } from './TerminalXPBar'
+import { getResponsiveBoxWidth, centerInBox } from '../utils/responsive-width'
 import type { UserProfile } from '../../../shared/types'
 
 interface ASCIICharacterSheetProps {
@@ -13,11 +14,18 @@ export function ASCIICharacterSheet(_props: ASCIICharacterSheetProps) {
 }
 
 // Export render function for direct terminal usage
-export function renderASCIICharacterSheet(profile: UserProfile): string {
+export function renderASCIICharacterSheet(
+  profile: UserProfile,
+  terminalCols: number = 80
+): string {
   const lines: string[] = []
 
-  const width = 70
+  const width = getResponsiveBoxWidth(terminalCols)
   const border = '═'.repeat(width)
+
+  // Adjust column widths based on box size
+  const labelWidth = width >= 60 ? 20 : 15  // Narrower labels on mobile
+  const valueWidth = 8
 
   // Top border
   lines.push(green('╔' + border + '╗'))
@@ -27,14 +35,8 @@ export function renderASCIICharacterSheet(profile: UserProfile): string {
 
   // Title
   const title = 'CHARACTER SHEET'
-  const titlePadding = Math.floor((width - title.length) / 2)
-  lines.push(
-    green('║') +
-    ' '.repeat(titlePadding) +
-    cyan(title) +
-    ' '.repeat(width - titlePadding - title.length) +
-    green('║')
-  )
+  const centeredTitle = centerInBox(cyan(title), width)
+  lines.push(green('║') + centeredTitle + green('║'))
 
   // Empty line
   lines.push(green('║') + ' '.repeat(width) + green('║'))
@@ -70,7 +72,8 @@ export function renderASCIICharacterSheet(profile: UserProfile): string {
     profile.level,
     profile.total_xp,
     profile.xp_for_next_level,
-    profile.xp_progress_percent
+    profile.xp_progress_percent,
+    terminalCols
   )
   // Remove ANSI color codes for length calculation
   const xpBarLength = xpBar.replace(/\x1b\[[0-9;]*m/g, '').length
@@ -100,12 +103,13 @@ export function renderASCIICharacterSheet(profile: UserProfile): string {
   ]
 
   stats.forEach((stat) => {
+    const totalStatWidth = labelWidth + valueWidth + 2  // +2 for leading spaces
     lines.push(
       green('║') +
       '  ' +
-      yellow(stat.label.padEnd(20)) +
-      cyan(stat.value.toString().padStart(8)) +
-      ' '.repeat(Math.max(0, width - 32)) +
+      yellow(stat.label.padEnd(labelWidth)) +
+      cyan(stat.value.toString().padStart(valueWidth)) +
+      ' '.repeat(Math.max(0, width - totalStatWidth)) +
       green('║')
     )
   })

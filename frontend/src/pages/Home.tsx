@@ -1,25 +1,29 @@
 // Home page with terminal feed display
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Terminal } from '../components/Terminal'
 import { renderTerminalPost } from '../components/TerminalPost'
 import { renderTerminalXPBar } from '../components/TerminalXPBar'
 import { renderLevelUpAnimation, getUnlockedFeatures } from '../components/LevelUpAnimation'
-import { renderCommentsView } from '../components/TerminalComment'
+import { renderPaginatedCommentsView } from '../components/TerminalComment'
+import { useComments } from '../hooks/useComments'
 import { useAuth } from '../hooks/useAuth'
 import { useFeed } from '../hooks/useFeed'
 import { useCharacter } from '../hooks/useCharacter'
 import { useTerminalCommands } from '../hooks/useTerminalCommands'
 import { apiClient } from '../services/api-client'
 import { green, yellow, red, cyan, magenta } from '../utils/ansi-colors'
-import type { CreatePostRequest, CommentWithAuthor } from '../../../shared/types'
+import { getResponsiveWidth } from '../utils/responsive-width'
+import type { CreatePostRequest } from '../../../shared/types'
 import '../styles/terminal.css'
 
 export function HomePage() {
   const { user, isAuthenticated, login, register } = useAuth()
   const { posts, loadDiscoveryFeed, loadHomeFeed } = useFeed()
   const { xpProgress, loadXPProgress, refreshCharacter } = useCharacter()
+  const { pagination, loadComments, lastViewedPostId } = useComments()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
+  const terminalColsRef = useRef<number>(80) // Stores current terminal width
 
   const writeLine = useCallback((text: string) => {
     setTerminalOutput((prev) => prev + text + '\r\n')
@@ -82,7 +86,7 @@ export function HomePage() {
           writeLine('')
           const newLevel = user.level + 1
           const unlockedFeatures = getUnlockedFeatures(newLevel)
-          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures))
+          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures, terminalColsRef.current))
           writeLine('')
         }
 
@@ -111,7 +115,7 @@ export function HomePage() {
           writeLine('')
           const newLevel = user.level + 1
           const unlockedFeatures = getUnlockedFeatures(newLevel)
-          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures))
+          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures, terminalColsRef.current))
           writeLine('')
         }
 
@@ -140,7 +144,7 @@ export function HomePage() {
           writeLine('')
           const newLevel = user.level + 1
           const unlockedFeatures = getUnlockedFeatures(newLevel)
-          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures))
+          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures, terminalColsRef.current))
           writeLine('')
         }
 
@@ -224,28 +228,76 @@ export function HomePage() {
 
       // Import and render character sheet
       const { renderASCIICharacterSheet } = await import('../components/ASCIICharacterSheet')
-      const sheet = renderASCIICharacterSheet(profile)
+      const sheet = renderASCIICharacterSheet(profile, terminalColsRef.current)
       writeLine(sheet)
     } catch (error) {
       writeLine(red(`✗ Failed to load profile: ${(error as Error).message}`))
     }
   }, [writeLine])
 
-  const handleShow = useCallback(async (postId: string) => {
+  const handleShow = useCallback(async (postId: string, pageArg?: string) => {
     try {
-      writeLine(cyan(`Loading comments for post ${postId.slice(0, 8)}...`))
+      // Parse pageArg to determine the page to load
+      let page = 1
+
+      if (pageArg) {
+        if (pageArg === 'next') {
+          // Only allow 'next' if we have a matching lastViewedPostId
+          if (lastViewedPostId === postId && pagination) {
+            if (pagination.has_more) {
+              page = pagination.page + 1
+            } else {
+              writeLine(yellow('You are on the last page.'))
+              return
+            }
+          } else {
+            writeLine(yellow('Tip: View a post first with /show <post_id> to use next/prev'))
+            return
+          }
+        } else if (pageArg === 'prev') {
+          // Only allow 'prev' if we have a matching lastViewedPostId
+          if (lastViewedPostId === postId && pagination) {
+            if (pagination.has_previous) {
+              page = pagination.page - 1
+            } else {
+              writeLine(yellow('You are on the first page.'))
+              return
+            }
+          } else {
+            writeLine(yellow('Tip: View a post first with /show <post_id> to use next/prev'))
+            return
+          }
+        } else {
+          // Try to parse as a page number
+          const parsedPage = parseInt(pageArg, 10)
+          if (isNaN(parsedPage) || parsedPage < 1) {
+            writeLine(red('Invalid page number. Must be a positive integer.'))
+            return
+          }
+          page = parsedPage
+        }
+      }
+
+      writeLine(cyan(`Loading comments for post ${postId.slice(0, 8)}${page > 1 ? ` (page ${page})` : ''}...`))
       writeLine('')
 
-      const result = await apiClient.get<{ comments: CommentWithAuthor[] }>(
-        `/posts/${postId}/comments`
-      )
+      const result = await loadComments(postId, page)
 
-      const commentsView = renderCommentsView(postId, result.comments)
-      writeLine(commentsView)
+      if (result) {
+        const commentsView = renderPaginatedCommentsView(
+          postId,
+          result.comments,
+          result.pagination,
+          terminalColsRef.current
+        )
+        writeLine(commentsView)
+      } else {
+        writeLine(red('Failed to load comments.'))
+      }
     } catch (error) {
       writeLine(red(`✗ Failed to load comments: ${(error as Error).message}`))
     }
-  }, [writeLine])
+  }, [writeLine, loadComments, pagination, lastViewedPostId])
 
   const handleUnlocks = useCallback(async () => {
     if (!user) {
@@ -256,7 +308,7 @@ export function HomePage() {
     try {
       // Import and render feature roadmap
       const { renderFeatureRoadmap } = await import('../components/FeatureLock')
-      const roadmap = renderFeatureRoadmap(user.level)
+      const roadmap = renderFeatureRoadmap(user.level, terminalColsRef.current)
       writeLine(roadmap)
     } catch (error) {
       writeLine(red(`✗ Failed to load unlocks: ${(error as Error).message}`))
@@ -276,7 +328,7 @@ export function HomePage() {
         writeLine(green(`Showing ${posts.length} popular posts:`))
         writeLine('')
         posts.forEach((post) => {
-          writeLine(renderTerminalPost(post, true))
+          writeLine(renderTerminalPost(post, true, terminalColsRef.current))
         })
       }
     } else {
@@ -301,7 +353,7 @@ export function HomePage() {
         writeLine(green(`Showing ${posts.length} posts:`))
         writeLine('')
         posts.forEach((post) => {
-          writeLine(renderTerminalPost(post, true))
+          writeLine(renderTerminalPost(post, true, terminalColsRef.current))
         })
       }
     }
@@ -332,7 +384,7 @@ export function HomePage() {
       writeLine('  /feed [discover]                 - Refresh feed or view popular posts')
       writeLine('  /like <post_id>                  - Like a post')
       writeLine('  /comment <post_id> <text>        - Comment on a post')
-      writeLine('  /show <post_id>                  - View comments on a post')
+      writeLine('  /show <post_id> [page]           - View comments on a post (paginated)')
       writeLine('  /follow <username>               - Follow a user')
       writeLine('  /unfollow <username>             - Unfollow a user')
       writeLine('')
@@ -352,7 +404,10 @@ export function HomePage() {
   })
 
   const handleCommand = useCallback(
-    async (command: string) => {
+    async (command: string, terminalCols: number = 80) => {
+      // Store terminal width for use in handlers
+      terminalColsRef.current = terminalCols
+
       // Mask password in echoed command
       let displayCommand = command
       const parts = command.trim().split(' ')
@@ -377,18 +432,22 @@ export function HomePage() {
   // Display welcome message and initial feed
   useEffect(() => {
     if (user && posts.length > 0 && xpProgress) {
+      const cols = terminalColsRef.current || 80
+      const width = getResponsiveWidth(cols)
+
       const xpBar = renderTerminalXPBar(
         xpProgress.current_level,
         xpProgress.total_xp,
         xpProgress.xp_for_next_level,
-        xpProgress.progress_percent
+        xpProgress.progress_percent,
+        cols
       )
 
       const welcome = [
-        green('═'.repeat(60)),
+        green('═'.repeat(width)),
         green('Welcome to Social Forge!'),
         xpBar,
-        green('═'.repeat(60)),
+        green('═'.repeat(width)),
         '',
         yellow(`Showing ${posts.length} posts:`),
         '',
@@ -396,7 +455,7 @@ export function HomePage() {
 
       setTerminalOutput(
         welcome +
-          posts.map((post) => renderTerminalPost(post, true)).join('\r\n') +
+          posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') +
           '\r\n'
       )
     }

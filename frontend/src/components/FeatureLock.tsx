@@ -1,6 +1,7 @@
 // Feature lock component showing level requirements
 
 import { red, yellow, green, cyan } from '../utils/ansi-colors'
+import { getResponsiveBoxWidth, getResponsiveProgressBarWidth } from '../utils/responsive-width'
 
 interface FeatureLockProps {
   featureName: string
@@ -40,12 +41,17 @@ export function renderFeatureLock(featureName: string, requiredLevel: number, cu
 }
 
 // Render full feature unlock roadmap
-export function renderFeatureRoadmap(currentLevel: number): string {
+export function renderFeatureRoadmap(
+  currentLevel: number,
+  terminalCols: number = 80
+): string {
   const lines: string[] = []
+  const width = getResponsiveBoxWidth(terminalCols)
+  const barWidth = getResponsiveProgressBarWidth(terminalCols)
 
-  lines.push(cyan('═'.repeat(70)))
+  lines.push(cyan('═'.repeat(width)))
   lines.push(cyan('FEATURE UNLOCK ROADMAP'))
-  lines.push(cyan('═'.repeat(70)))
+  lines.push(cyan('═'.repeat(width)))
   lines.push('')
 
   FEATURE_UNLOCKS.forEach((unlock) => {
@@ -58,7 +64,7 @@ export function renderFeatureRoadmap(currentLevel: number): string {
       : yellow(`Level ${unlock.level}`)
 
     lines.push(levelLine)
-    lines.push('─'.repeat(70))
+    lines.push('─'.repeat(width))
 
     // Features
     unlock.features.forEach((feature) => {
@@ -75,7 +81,6 @@ export function renderFeatureRoadmap(currentLevel: number): string {
   const progressPercent = Math.round((unlockedCount / totalCount) * 100)
 
   lines.push(cyan('Progress:'))
-  const barWidth = 50
   const filledBlocks = Math.floor((progressPercent / 100) * barWidth)
   const emptyBlocks = barWidth - filledBlocks
   const progressBar = green('█'.repeat(filledBlocks)) + '░'.repeat(emptyBlocks)

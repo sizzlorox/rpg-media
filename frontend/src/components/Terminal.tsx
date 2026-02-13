@@ -9,7 +9,7 @@ import { getResponsiveConfig, getCurrentViewportWidth } from '../utils/terminal-
 import { renderWelcomeMessage } from '../utils/welcome-message'
 
 interface TerminalProps {
-  onCommand?: (command: string) => void
+  onCommand?: (command: string, terminalCols: number) => void
   initialContent?: string
 }
 
@@ -429,7 +429,10 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
           // Reset history navigation
           historyIndexRef.current = -1
 
-          onCommand(command)
+          // Get actual terminal columns after fit
+          const cols = xtermRef.current?.cols || responsiveConfig.config.minCols
+
+          onCommand(command, cols)
         }
 
         commandBufferRef.current = ''

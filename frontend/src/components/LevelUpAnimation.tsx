@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { green, cyan, yellow, magenta } from '../utils/ansi-colors'
+import { getResponsiveBoxWidth, centerInBox } from '../utils/responsive-width'
 
 interface LevelUpAnimationProps {
   newLevel: number
@@ -25,64 +26,60 @@ export function LevelUpAnimation({ onClose }: LevelUpAnimationProps) {
 }
 
 // Export render function for direct terminal usage
-export function renderLevelUpAnimation(newLevel: number, unlockedFeatures: string[] = []): string {
+export function renderLevelUpAnimation(
+  newLevel: number,
+  unlockedFeatures: string[] = [],
+  terminalCols: number = 80
+): string {
   const lines: string[] = []
+  const width = getResponsiveBoxWidth(terminalCols)
 
   // Top border
-  lines.push(cyan('╔' + '═'.repeat(58) + '╗'))
+  lines.push(cyan('╔' + '═'.repeat(width - 2) + '╗'))
 
   // Empty line
-  lines.push(cyan('║') + ' '.repeat(58) + cyan('║'))
+  lines.push(cyan('║') + ' '.repeat(width - 2) + cyan('║'))
 
   // Level up message
   const levelMsg = `LEVEL UP! You are now Level ${newLevel}`
-  const levelPadding = Math.floor((58 - levelMsg.length) / 2)
-  lines.push(
-    cyan('║') +
-    ' '.repeat(levelPadding) +
-    green(levelMsg) +
-    ' '.repeat(58 - levelPadding - levelMsg.length) +
-    cyan('║')
-  )
+  const centeredLevel = centerInBox(green(levelMsg), width - 2)
+  lines.push(cyan('║') + centeredLevel + cyan('║'))
 
   // Empty line
-  lines.push(cyan('║') + ' '.repeat(58) + cyan('║'))
+  lines.push(cyan('║') + ' '.repeat(width - 2) + cyan('║'))
 
-  // ASCII art celebration
-  const art = [
-    '    ░▒▓█  CONGRATULATIONS!  █▓▒░    ',
-    '         ★  ⚡  ✦  ⚡  ★          ',
-  ]
-
-  art.forEach((line) => {
-    const padding = Math.floor((58 - line.length) / 2)
-    lines.push(
-      cyan('║') +
-      ' '.repeat(padding) +
-      yellow(line) +
-      ' '.repeat(58 - padding - line.length) +
-      cyan('║')
-    )
-  })
+  // Show full ASCII art only on tablet/desktop
+  if (terminalCols >= 60) {
+    const art = ['    ░▒▓█  CONGRATULATIONS!  █▓▒░    ', '         ★  ⚡  ✦  ⚡  ★          ']
+    art.forEach(line => {
+      const centeredArt = centerInBox(yellow(line), width - 2)
+      lines.push(cyan('║') + centeredArt + cyan('║'))
+    })
+  } else {
+    // Compact version for mobile
+    const compactArt = 'CONGRATULATIONS!'
+    const centeredArt = centerInBox(yellow(compactArt), width - 2)
+    lines.push(cyan('║') + centeredArt + cyan('║'))
+  }
 
   // Empty line
-  lines.push(cyan('║') + ' '.repeat(58) + cyan('║'))
+  lines.push(cyan('║') + ' '.repeat(width - 2) + cyan('║'))
 
   // Unlocked features section
   if (unlockedFeatures.length > 0) {
-    lines.push(cyan('║') + magenta(' New Features Unlocked:'.padEnd(58)) + cyan('║'))
-    lines.push(cyan('║') + ' '.repeat(58) + cyan('║'))
+    lines.push(cyan('║') + magenta(' New Features Unlocked:'.padEnd(width - 2)) + cyan('║'))
+    lines.push(cyan('║') + ' '.repeat(width - 2) + cyan('║'))
 
     unlockedFeatures.forEach((feature) => {
       const featureLine = `  ✓ ${feature}`
-      lines.push(cyan('║') + green(featureLine.padEnd(58)) + cyan('║'))
+      lines.push(cyan('║') + green(featureLine.padEnd(width - 2)) + cyan('║'))
     })
 
-    lines.push(cyan('║') + ' '.repeat(58) + cyan('║'))
+    lines.push(cyan('║') + ' '.repeat(width - 2) + cyan('║'))
   }
 
   // Bottom border
-  lines.push(cyan('╚' + '═'.repeat(58) + '╝'))
+  lines.push(cyan('╚' + '═'.repeat(width - 2) + '╝'))
 
   return lines.join('\r\n')
 }

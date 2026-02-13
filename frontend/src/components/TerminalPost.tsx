@@ -2,6 +2,7 @@
 
 import type { PostWithAuthor } from '../../../shared/types'
 import { green, cyan, yellow, magenta } from '../utils/ansi-colors'
+import { getResponsiveWidth } from '../utils/responsive-width'
 
 interface TerminalPostProps {
   post: PostWithAuthor
@@ -15,7 +16,12 @@ export function TerminalPost(_props: TerminalPostProps) {
 }
 
 // Export render function for direct terminal usage
-export function renderTerminalPost(post: PostWithAuthor, showActions: boolean = true): string {
+export function renderTerminalPost(
+  post: PostWithAuthor,
+  showActions: boolean = true,
+  terminalCols: number = 80
+): string {
+  const width = getResponsiveWidth(terminalCols)
   const formatTimestamp = (timestamp: number): string => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -51,7 +57,7 @@ export function renderTerminalPost(post: PostWithAuthor, showActions: boolean = 
   }
 
   // Separator
-  lines.push('─'.repeat(60))
+  lines.push('─'.repeat(width))
 
   return lines.join('\r\n')
 }

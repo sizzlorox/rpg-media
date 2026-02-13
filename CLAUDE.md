@@ -10,13 +10,37 @@ Auto-generated from all feature plans. Last updated: 2026-02-13
 ## Project Structure
 
 ```text
-src/
-tests/
+frontend/          # React + Vite frontend application
+  src/
+    components/    # React components
+    hooks/         # Custom React hooks
+    pages/         # Page components
+    services/      # API client services
+    styles/        # CSS styles
+    utils/         # Utility functions
+worker/            # Cloudflare Worker backend
+  src/
+    routes/        # API route handlers
+    models/        # Database models
+    services/      # Business logic services
+    lib/           # Utilities and helpers
+    middleware/    # Hono middleware
+shared/            # Shared TypeScript types
+  types/           # Type definitions
+tests/             # Integration tests
 ```
 
 ## Commands
 
-npm test && npm run lint
+### Development
+- `cd frontend && npm run dev` - Start frontend dev server
+- `cd worker && wrangler dev` - Start worker dev server
+- `npm test` - Run tests (not yet configured)
+
+### Build & Deploy
+- `cd frontend && npm run build` - Build frontend for production
+- `npx wrangler deploy` - Deploy worker to Cloudflare (manual deployment)
+- **Note**: Deployment is done manually by the developer
 
 ## Code Style
 
@@ -93,5 +117,29 @@ All code must follow the 7 principles in `.specify/memory/constitution.md`:
 5. Batch Operations & Concurrency (batch() for multi-statement ops)
 6. Migration Safety (SQL files, dependency ordering, local testing)
 7. Platform Limits Awareness (10GB/DB, 2MB/row, single-threaded queries)
+
+## Recent Feature Implementations
+
+### Comments Pagination (2026-02-13)
+Added pagination support to `/show <post_id>` command for viewing post comments.
+
+**Features:**
+- Page-based navigation (15 comments per page by default)
+- Commands: `/show <post_id>`, `/show <post_id> 2`, `/show <post_id> next`, `/show <post_id> prev`
+- Backend uses LIMIT/OFFSET with has_more detection pattern (limit+1 fetch)
+- Frontend tracks last viewed post for stateful next/prev navigation
+
+**Files Changed:**
+- `worker/src/routes/interactions.ts` - Added pagination to GET /api/posts/:id/comments
+- `shared/types/index.ts` - Added CommentsResponse interface
+- `frontend/src/hooks/useComments.ts` - NEW: Comments state management hook
+- `frontend/src/hooks/useTerminalCommands.ts` - Updated /show to accept page parameter
+- `frontend/src/pages/Home.tsx` - Updated handleShow with pagination logic
+- `frontend/src/components/TerminalComment.tsx` - Added renderPaginatedCommentsView()
+
+**API Changes:**
+- Query params: `?page=N&limit=N` (optional, defaults: page=1, limit=15)
+- Response includes pagination metadata (page, limit, total_comments, total_pages, has_more, has_previous)
+- Backward compatible - old clients get first 15 comments
 
 <!-- MANUAL ADDITIONS END -->
