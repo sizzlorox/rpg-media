@@ -1,0 +1,197 @@
+// Shared TypeScript Types for RPG Social Media Platform
+// Used by both worker (backend) and frontend
+// Mirrors database schema with exact type mappings
+
+// ==================== Database Models ====================
+
+export interface User {
+  id: string
+  username: string
+  password_hash: string
+  level: number
+  total_xp: number
+  created_at: number
+  updated_at: number
+  avatar_url: string | null
+  banner_url: string | null
+  bio: string | null
+  theme_preference: string
+}
+
+export interface Post {
+  id: string
+  user_id: string
+  content: string
+  char_count: number
+  media_url: string | null
+  created_at: number
+  updated_at: number
+  is_pinned: number  // 0 or 1 (SQLite boolean)
+}
+
+export interface Like {
+  id: string
+  user_id: string
+  post_id: string
+  created_at: number
+}
+
+export interface Comment {
+  id: string
+  user_id: string
+  post_id: string
+  content: string
+  created_at: number
+  updated_at: number
+}
+
+export interface Follow {
+  id: string
+  follower_id: string
+  followee_id: string
+  created_at: number
+}
+
+export interface LevelThreshold {
+  level: number
+  xp_required: number
+  features_unlocked: string  // JSON array
+}
+
+// ==================== API Response Types ====================
+
+export interface UserProfile extends User {
+  // Computed stats (not in database)
+  total_posts: number
+  total_likes_given: number
+  total_likes_received: number
+  total_comments_made: number
+  followers_count: number
+  following_count: number
+  xp_for_current_level: number
+  xp_for_next_level: number
+  xp_progress_percent: number
+}
+
+export interface PostWithAuthor extends Post {
+  author: {
+    username: string
+    level: number
+    avatar_url: string | null
+  }
+  like_count: number
+  comment_count: number
+  is_liked_by_user: boolean
+}
+
+export interface CommentWithAuthor extends Comment {
+  author: {
+    username: string
+    level: number
+    avatar_url: string | null
+  }
+}
+
+// ==================== API Request/Response Payloads ====================
+
+export interface RegisterRequest {
+  username: string
+  password: string
+}
+
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+export interface CreatePostRequest {
+  content: string
+  media_url?: string
+  is_pinned?: boolean
+}
+
+export interface CreatePostResponse {
+  post: PostWithAuthor
+  xp_awarded: number
+  level_up: boolean
+}
+
+export interface LikePostResponse {
+  like_count: number
+  xp_awarded: {
+    liker: number
+    creator: number
+  }
+  level_up: boolean
+}
+
+export interface CreateCommentRequest {
+  content: string
+}
+
+export interface CreateCommentResponse {
+  comment: CommentWithAuthor
+  xp_awarded: {
+    commenter: number
+    creator: number
+  }
+  level_up: boolean
+}
+
+export interface FeedResponse {
+  posts: PostWithAuthor[]
+  has_more: boolean
+}
+
+export interface XPHistoryEntry {
+  action: 'post' | 'like' | 'comment' | 'followed'
+  xp_earned: number
+  timestamp: number
+  description: string
+}
+
+export interface XPHistoryResponse {
+  history: XPHistoryEntry[]
+}
+
+export interface LevelThresholdsResponse {
+  levels: {
+    level: number
+    xp_required: number
+    features_unlocked: string[]
+  }[]
+}
+
+// ==================== Error Response ====================
+
+export interface ErrorResponse {
+  error: string
+  message: string
+  code?: string
+}
+
+// ==================== JWT Payload ====================
+
+export interface JWTPayload {
+  sub: string  // user id
+  username: string
+  level: number
+  iat?: number
+  exp?: number
+}
+
+// ==================== Feature Flags ====================
+
+export type FeatureName =
+  | 'basic_posting_280'
+  | 'liking'
+  | 'commenting'
+  | 'following'
+  | 'image_uploads'
+  | 'extended_posts_500'
+  | 'profile_customization'
+  | 'avatar_upload'
+  | 'banner_upload'
+  | 'advanced_posts_1000'
+  | 'custom_themes'
+  | 'pinned_posts'

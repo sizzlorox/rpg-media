@@ -1,0 +1,765 @@
+openapi: 3.0.3
+info:
+  title: RPG Social Media API
+  description: |
+    Twitter-like social media platform with RPG gamification mechanics.
+    Users earn XP through interactions, level up, and unlock features progressively.
+  version: 1.0.0
+  contact:
+    name: RPG Social Media Team
+
+servers:
+  - url: https://api.rpg-social.workers.dev
+    description: Production (Cloudflare Workers)
+  - url: http://localhost:8787
+    description: Local development (wrangler dev)
+
+security:
+  - cookieAuth: []
+
+tags:
+  - name: Authentication
+    description: User registration, login, logout
+  - name: Users
+    description: User profiles and character sheets
+  - name: Posts
+    description: Create, read, update, delete posts
+  - name: Interactions
+    description: Likes, comments, follows
+  - name: Feed
+    description: Content discovery and personalized feeds
+  - name: XP & Levels
+    description: Experience points and character progression
+
+paths:
+  # ==================== Authentication ====================
+  /api/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register new user account
+      description: |
+        Creates a new user account with default level 1 and 0 XP.
+        Returns JWT token in httpOnly cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 20
+                  pattern: '^[a-zA-Z0-9_]+$'
+                  example: "player123"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "securePassword123"
+      responses:
+        '201':
+          description: User created successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: auth_token=eyJhbGc...; HttpOnly; Secure; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login to existing account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: "player123"
+                password:
+                  type: string
+                  example: "securePassword123"
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout current user
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: auth_token=; Max-Age=0
+
+  /api/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current authenticated user
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== Users ====================
+  /api/users/{username}:
+    get:
+      tags: [Users]
+      summary: Get user profile (character sheet)
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "player123"
+      responses:
+        '200':
+          description: User profile with character stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/{username}/posts:
+    get:
+      tags: [Users]
+      summary: Get user's post history
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: List of user's posts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  posts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PostWithAuthor'
+                  total:
+                    type: integer
+                  has_more:
+                    type: boolean
+
+  # ==================== Posts ====================
+  /api/posts:
+    post:
+      tags: [Posts]
+      summary: Create new post
+      description: |
+        Creates a new post. Character limit depends on user level:
+        - Level 1-4: 280 characters
+        - Level 5-9: 500 characters
+        - Level 10+: 1000 characters
+
+        Awards 10 XP to the user.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 1000
+                  example: "Just leveled up to 5! 🎮"
+                media_url:
+                  type: string
+                  format: uri
+                  description: R2 image URL (level 3+ only)
+                  example: "https://r2.bucket.dev/images/abc123.jpg"
+                is_pinned:
+                  type: boolean
+                  description: Pin to profile (level 15+ only)
+      responses:
+        '201':
+          description: Post created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/PostWithAuthor'
+                  xp_awarded:
+                    type: integer
+                    example: 10
+                  level_up:
+                    type: boolean
+                    description: True if user leveled up from this action
+        '400':
+          description: Content exceeds character limit for user's level
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Feature not unlocked (e.g., media upload at level 2)
+        '429':
+          description: Rate limit exceeded (10 posts/hour)
+
+  /api/posts/{postId}:
+    get:
+      tags: [Posts]
+      summary: Get post by ID
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Post details with comments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/PostWithAuthor'
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CommentWithAuthor'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Posts]
+      summary: Delete own post
+      description: Deletes post but XP earned remains (FR-019)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Post deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Cannot delete another user's post
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==================== Interactions ====================
+  /api/posts/{postId}/like:
+    post:
+      tags: [Interactions]
+      summary: Like a post
+      description: |
+        Awards XP:
+        - Liker: 1 XP
+        - Post creator: 2 XP
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post liked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  like_count:
+                    type: integer
+                  xp_awarded:
+                    type: object
+                    properties:
+                      liker:
+                        type: integer
+                        example: 1
+                      creator:
+                        type: integer
+                        example: 2
+                  level_up:
+                    type: boolean
+        '400':
+          description: Already liked this post
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Rate limit exceeded (50 likes/hour)
+
+    delete:
+      tags: [Interactions]
+      summary: Unlike a post
+      description: Removes like but does not deduct XP
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Like removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/posts/{postId}/comments:
+    post:
+      tags: [Interactions]
+      summary: Comment on a post
+      description: |
+        Awards XP:
+        - Commenter: 5 XP
+        - Post creator: 3 XP
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 500
+                  example: "Great post!"
+      responses:
+        '201':
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/CommentWithAuthor'
+                  xp_awarded:
+                    type: object
+                    properties:
+                      commenter:
+                        type: integer
+                        example: 5
+                      creator:
+                        type: integer
+                        example: 3
+                  level_up:
+                    type: boolean
+        '400':
+          description: Content exceeds 500 characters
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Rate limit exceeded (20 comments/hour)
+
+  /api/users/{username}/follow:
+    post:
+      tags: [Interactions]
+      summary: Follow a user
+      description: Awards 5 XP to the followed user
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User followed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  followers_count:
+                    type: integer
+                  xp_awarded_to_followee:
+                    type: integer
+                    example: 5
+        '400':
+          description: Already following this user or trying to follow self
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags: [Interactions]
+      summary: Unfollow a user
+      description: Removes follow but does not deduct XP
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Unfollowed successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== Feed ====================
+  /api/feed/home:
+    get:
+      tags: [Feed]
+      summary: Get personalized home feed
+      description: |
+        Returns posts from followed users in reverse chronological order.
+        Success Criteria: <2s load time for 100 followed users (SC-008)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Home feed posts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  posts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PostWithAuthor'
+                  has_more:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/feed/discover:
+    get:
+      tags: [Feed]
+      summary: Get discovery feed
+      description: Returns popular posts for new users or exploration
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Discovery feed posts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  posts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PostWithAuthor'
+                  has_more:
+                    type: boolean
+
+  # ==================== XP & Levels ====================
+  /api/xp/history:
+    get:
+      tags: [XP & Levels]
+      summary: Get XP earning history
+      description: Returns recent XP-earning actions
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: XP history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        action:
+                          type: string
+                          enum: [post, like, comment, followed]
+                        xp_earned:
+                          type: integer
+                        timestamp:
+                          type: integer
+                        description:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/levels/thresholds:
+    get:
+      tags: [XP & Levels]
+      summary: Get all level thresholds and feature unlocks
+      description: Returns XP requirements and features for each level
+      responses:
+        '200':
+          description: Level progression table
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  levels:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        level:
+                          type: integer
+                        xp_required:
+                          type: integer
+                        features_unlocked:
+                          type: array
+                          items:
+                            type: string
+
+# ==================== Components ====================
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 50
+        maximum: 100
+      description: Number of items to return
+
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+      description: Number of items to skip
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        level:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total_xp:
+          type: integer
+        xp_for_current_level:
+          type: integer
+          description: XP required to reach current level
+        xp_for_next_level:
+          type: integer
+          description: XP required to reach next level
+        xp_progress_percent:
+          type: number
+          format: float
+          description: Progress to next level (0-100)
+        created_at:
+          type: integer
+          description: Unix timestamp (milliseconds)
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+        banner_url:
+          type: string
+          format: uri
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        theme_preference:
+          type: string
+          enum: [default, dark, light, rpg, cyberpunk]
+        # Character stats
+        total_posts:
+          type: integer
+        total_likes_given:
+          type: integer
+        total_likes_received:
+          type: integer
+        total_comments_made:
+          type: integer
+        followers_count:
+          type: integer
+        following_count:
+          type: integer
+
+    PostWithAuthor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+        content:
+          type: string
+        char_count:
+          type: integer
+        media_url:
+          type: string
+          nullable: true
+        created_at:
+          type: integer
+        is_pinned:
+          type: boolean
+        author:
+          type: object
+          properties:
+            username:
+              type: string
+            level:
+              type: integer
+            avatar_url:
+              type: string
+              nullable: true
+        like_count:
+          type: integer
+        comment_count:
+          type: integer
+        is_liked_by_user:
+          type: boolean
+          description: True if authenticated user has liked this post
+
+    CommentWithAuthor:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        post_id:
+          type: string
+        content:
+          type: string
+        created_at:
+          type: integer
+        author:
+          type: object
+          properties:
+            username:
+              type: string
+            level:
+              type: integer
+            avatar_url:
+              type: string
+              nullable: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

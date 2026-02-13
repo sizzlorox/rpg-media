@@ -1,0 +1,145 @@
+/* Terminal UI Theme - MUD-style green-on-black */
+
+:root {
+  /* Terminal colors */
+  --terminal-bg: #000000;
+  --terminal-fg: #00ff00;
+  --terminal-accent: #00aa00;
+  --terminal-error: #ff0000;
+  --terminal-warning: #ffff00;
+  --terminal-info: #00ffff;
+  --terminal-xp: #ffd700;
+  --terminal-level: #ff00ff;
+
+  /* Fonts */
+  --font-terminal: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--terminal-bg);
+  color: var(--terminal-fg);
+  font-family: var(--font-terminal);
+  overflow: hidden;
+}
+
+.terminal-container {
+  position: relative;
+  background: var(--terminal-bg);
+  border: 2px solid var(--terminal-accent);
+  border-radius: 4px;
+  box-shadow:
+    0 0 20px rgba(0, 255, 0, 0.3),
+    inset 0 0 20px rgba(0, 255, 0, 0.05);
+}
+
+/* Optional CRT scanline effect */
+.terminal-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 0, 0.05) 0px,
+    transparent 1px,
+    transparent 2px,
+    rgba(0, 255, 0, 0.05) 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Terminal text styling */
+.xterm {
+  padding: 10px;
+}
+
+.xterm-viewport {
+  background-color: var(--terminal-bg) !important;
+}
+
+.xterm-screen {
+  background-color: var(--terminal-bg) !important;
+}
+
+/* ASCII art boxes */
+.ascii-box {
+  color: var(--terminal-fg);
+  font-family: var(--font-terminal);
+  line-height: 1.2;
+  white-space: pre;
+}
+
+/* XP and level indicators */
+.xp-text {
+  color: var(--terminal-xp);
+}
+
+.level-text {
+  color: var(--terminal-level);
+}
+
+.error-text {
+  color: var(--terminal-error);
+}
+
+.warning-text {
+  color: var(--terminal-warning);
+}
+
+.info-text {
+  color: var(--terminal-info);
+}
+
+/* Progress bar */
+.progress-bar {
+  display: inline-block;
+  font-family: var(--font-terminal);
+}
+
+.progress-filled {
+  color: var(--terminal-xp);
+}
+
+.progress-empty {
+  color: var(--terminal-accent);
+}
+
+/* Glow effect for important text */
+.glow {
+  text-shadow:
+    0 0 5px var(--terminal-fg),
+    0 0 10px var(--terminal-fg),
+    0 0 15px var(--terminal-accent);
+}
+
+/* Animations */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.blink {
+  animation: blink 1s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s infinite;
+}

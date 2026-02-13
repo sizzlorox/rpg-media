@@ -1,0 +1,30 @@
+{
+  "name": "rpg-social-worker",
+  "version": "1.0.0",
+  "description": "RPG-Gamified Social Media Platform - Cloudflare Worker Backend",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --persist-to=../.wrangler/state",
+    "deploy": "wrangler deploy",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:integration": "vitest --config vitest.integration.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["cloudflare", "workers", "hono", "rpg", "social-media"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@sentry/cloudflare": "^8.55.0",
+    "bcryptjs": "^3.0.3",
+    "hono": "^4.11.9"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260213.0",
+    "@types/bcryptjs": "^3.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "wrangler": "^3.114.17"
+  }
+}

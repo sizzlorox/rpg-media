@@ -1,0 +1,120 @@
+// Post model with D1 prepared statements
+
+import { DatabaseClient } from '../lib/db'
+import { Post, PostWithAuthor } from '../../../../shared/types'
+
+export class PostModel {
+  constructor(private db: DatabaseClient) {}
+
+  // Get post by ID
+  async findById(id: string): Promise<Post | null> {
+    return await this.db.queryOne<Post>(
+      'SELECT * FROM posts WHERE id = ?',
+      id
+    )
+  }
+
+  // Create new post
+  async create(post: Omit<Post, 'created_at' | 'updated_at'>): Promise<Post> {
+    const now = Date.now()
+
+    await this.db.exec(
+      `INSERT INTO posts (
+        id, user_id, content, char_count, media_url, created_at, updated_at, is_pinned
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      post.id,
+      post.user_id,
+      post.content,
+      post.char_count,
+      post.media_url,
+      now,
+      now,
+      post.is_pinned || 0
+    )
+
+    const created = await this.findById(post.id)
+    if (!created) {
+      throw new Error('Failed to create post')
+    }
+
+    return created
+  }
+
+  // Delete post
+  async delete(id: string): Promise<void> {
+    await this.db.exec('DELETE FROM posts WHERE id = ?', id)
+  }
+
+  // Get post with author details
+  async getPostWithAuthor(postId: string, currentUserId?: string): Promise<PostWithAuthor | null> {
+    const post = await this.findById(postId)
+    if (!post) {
+      return null
+    }
+
+    return this.enrichPostWithAuthor(post, currentUserId)
+  }
+
+  // Get posts by user ID
+  async getPostsByUserId(userId: string, limit: number = 50, offset: number = 0): Promise<Post[]> {
+    return await this.db.query<Post>(
+      'SELECT * FROM posts WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      userId,
+      limit,
+      offset
+    )
+  }
+
+  // Enrich post with author details and engagement counts
+  async enrichPostWithAuthor(post: Post, currentUserId?: string): Promise<PostWithAuthor> {
+    // Get author info
+    const author = await this.db.queryOne<{
+      username: string
+      level: number
+      avatar_url: string | null
+    }>(
+      'SELECT username, level, avatar_url FROM users WHERE id = ?',
+      post.user_id
+    )
+
+    if (!author) {
+      throw new Error('Post author not found')
+    }
+
+    // Get engagement counts
+    const [likeCount, commentCount, isLiked] = await Promise.all([
+      this.db.queryOne<{ count: number }>(
+        'SELECT COUNT(*) as count FROM likes WHERE post_id = ?',
+        post.id
+      ),
+      this.db.queryOne<{ count: number }>(
+        'SELECT COUNT(*) as count FROM comments WHERE post_id = ?',
+        post.id
+      ),
+      currentUserId
+        ? this.db.queryOne<{ count: number }>(
+            'SELECT COUNT(*) as count FROM likes WHERE post_id = ? AND user_id = ?',
+            post.id,
+            currentUserId
+          )
+        : Promise.resolve({ count: 0 }),
+    ])
+
+    return {
+      ...post,
+      author: {
+        username: author.username,
+        level: author.level,
+        avatar_url: author.avatar_url,
+      },
+      like_count: likeCount?.count || 0,
+      comment_count: commentCount?.count || 0,
+      is_liked_by_user: (isLiked?.count || 0) > 0,
+    }
+  }
+
+  // Enrich multiple posts with author details (batch operation)
+  async enrichPostsWithAuthor(posts: Post[], currentUserId?: string): Promise<PostWithAuthor[]> {
+    return Promise.all(posts.map((post) => this.enrichPostWithAuthor(post, currentUserId)))
+  }
+}

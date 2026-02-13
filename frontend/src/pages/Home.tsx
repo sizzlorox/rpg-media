@@ -1,0 +1,290 @@
+// Home page with terminal feed display
+
+import { useState, useCallback, useEffect } from 'react'
+import { Terminal } from '../components/Terminal'
+import { renderTerminalPost } from '../components/TerminalPost'
+import { renderTerminalXPBar } from '../components/TerminalXPBar'
+import { renderLevelUpAnimation, getUnlockedFeatures } from '../components/LevelUpAnimation'
+import { useAuth } from '../hooks/useAuth'
+import { useFeed } from '../hooks/useFeed'
+import { useCharacter } from '../hooks/useCharacter'
+import { useTerminalCommands } from '../hooks/useTerminalCommands'
+import { apiClient } from '../services/api-client'
+import { green, yellow, red, cyan, magenta } from '../utils/ansi-colors'
+import { createBox, closeBox, boxLine } from '../utils/ascii-art'
+import type { CreatePostRequest } from '../../../shared/types'
+import '../styles/terminal.css'
+
+export function HomePage() {
+  const { user, isAuthenticated } = useAuth()
+  const { posts, loadDiscoveryFeed, loadHomeFeed, isLoading } = useFeed()
+  const { xpProgress, loadXPProgress, refreshCharacter } = useCharacter()
+  const [terminalOutput, setTerminalOutput] = useState<string>('')
+
+  const writeLine = useCallback((text: string) => {
+    setTerminalOutput((prev) => prev + text + '\r\n')
+  }, [])
+
+  // Load initial feed and XP progress
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadHomeFeed()
+      loadXPProgress()
+    } else {
+      loadDiscoveryFeed()
+    }
+  }, [isAuthenticated, loadHomeFeed, loadDiscoveryFeed, loadXPProgress])
+
+  const handlePost = useCallback(
+    async (content: string) => {
+      if (!isAuthenticated || !user) {
+        writeLine(red('✗ You must be logged in to post'))
+        return
+      }
+
+      try {
+        const body: CreatePostRequest = { content }
+        const result = await apiClient.post<any>('/posts', body)
+
+        writeLine(green('✓ Post created!'))
+        writeLine(yellow(`+${result.xp_awarded} XP`))
+
+        if (result.level_up) {
+          writeLine('')
+          const newLevel = user.level + 1
+          const unlockedFeatures = getUnlockedFeatures(newLevel)
+          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures))
+          writeLine('')
+        }
+
+        // Refresh feed and XP progress
+        await Promise.all([loadHomeFeed(), refreshCharacter()])
+      } catch (error) {
+        writeLine(red(`✗ Failed to create post: ${(error as Error).message}`))
+      }
+    },
+    [isAuthenticated, user, writeLine, loadHomeFeed]
+  )
+
+  const handleLike = useCallback(
+    async (postId: string) => {
+      if (!isAuthenticated) {
+        writeLine(red('✗ You must be logged in to like posts'))
+        return
+      }
+
+      try {
+        const result = await apiClient.post<any>(`/posts/${postId}/like`, {})
+        writeLine(green('✓ Post liked!'))
+        writeLine(yellow(`+${result.xp_awarded.liker} XP (you), +${result.xp_awarded.creator} XP (creator)`))
+
+        if (result.level_up.liker && user) {
+          writeLine('')
+          const newLevel = user.level + 1
+          const unlockedFeatures = getUnlockedFeatures(newLevel)
+          writeLine(renderLevelUpAnimation(newLevel, unlockedFeatures))
+          writeLine('')
+        }
+
+        // Refresh feed and XP progress
+        await Promise.all([loadHomeFeed(), refreshCharacter()])
+      } catch (error) {
+        writeLine(red(`✗ Failed to like post: ${(error as Error).message}`))
+      }
+    },
+    [isAuthenticated, writeLine, loadHomeFeed]
+  )
+
+  const handleFollow = useCallback(
+    async (username: string) => {
+      if (!isAuthenticated) {
+        writeLine(red('✗ You must be logged in to follow users'))
+        return
+      }
+
+      try {
+        const result = await apiClient.post<any>(`/users/${username}/follow`, {})
+        writeLine(green(`✓ Now following @${username}!`))
+        writeLine(yellow(`They received +${result.xp_awarded} XP`))
+
+        if (result.level_up) {
+          writeLine(cyan(`@${username} leveled up!`))
+        }
+      } catch (error) {
+        writeLine(red(`✗ Failed to follow user: ${(error as Error).message}`))
+      }
+    },
+    [isAuthenticated, writeLine]
+  )
+
+  const handleUnfollow = useCallback(
+    async (username: string) => {
+      if (!isAuthenticated) {
+        writeLine(red('✗ You must be logged in to unfollow users'))
+        return
+      }
+
+      try {
+        await apiClient.delete(`/users/${username}/follow`)
+        writeLine(green(`✓ Unfollowed @${username}`))
+      } catch (error) {
+        writeLine(red(`✗ Failed to unfollow user: ${(error as Error).message}`))
+      }
+    },
+    [isAuthenticated, writeLine]
+  )
+
+  const handleLevels = useCallback(async () => {
+    try {
+      writeLine(cyan('Level Progression Table'))
+      writeLine(cyan('═'.repeat(60)))
+      writeLine('')
+
+      const result = await apiClient.get<{ thresholds: Array<{ level: number; xp_required: number; feature_unlocked: string | null }> }>('/levels/thresholds')
+
+      writeLine(yellow('Level | XP Required | Feature Unlocked'))
+      writeLine('─'.repeat(60))
+
+      result.thresholds.forEach((threshold) => {
+        const levelStr = threshold.level.toString().padEnd(5)
+        const xpStr = threshold.xp_required.toString().padEnd(11)
+        const featureStr = threshold.feature_unlocked || '-'
+        writeLine(`${green(levelStr)} | ${cyan(xpStr)} | ${magenta(featureStr)}`)
+      })
+
+      writeLine('')
+      writeLine(yellow('Earn XP by: Posting (+10), Liking (+1), Commenting (+5), Being Followed (+5)'))
+    } catch (error) {
+      writeLine(red(`✗ Failed to load levels: ${(error as Error).message}`))
+    }
+  }, [writeLine])
+
+  const handleProfile = useCallback(async (username?: string) => {
+    try {
+      const endpoint = username ? `/users/${username}` : '/auth/me'
+      const profile = await apiClient.get<any>(endpoint)
+
+      // Import and render character sheet
+      const { renderASCIICharacterSheet } = await import('../components/ASCIICharacterSheet')
+      const sheet = renderASCIICharacterSheet(profile)
+      writeLine(sheet)
+    } catch (error) {
+      writeLine(red(`✗ Failed to load profile: ${(error as Error).message}`))
+    }
+  }, [writeLine])
+
+  const handleUnlocks = useCallback(async () => {
+    if (!user) {
+      writeLine(yellow('Log in to see your feature unlock progress'))
+      return
+    }
+
+    try {
+      // Import and render feature roadmap
+      const { renderFeatureRoadmap } = await import('../components/FeatureLock')
+      const roadmap = renderFeatureRoadmap(user.level)
+      writeLine(roadmap)
+    } catch (error) {
+      writeLine(red(`✗ Failed to load unlocks: ${(error as Error).message}`))
+    }
+  }, [user, writeLine])
+
+  const handleFeed = useCallback(async () => {
+    writeLine(cyan('Loading feed...'))
+
+    if (isAuthenticated) {
+      await loadHomeFeed()
+    } else {
+      await loadDiscoveryFeed()
+    }
+
+    // Display posts
+    if (posts.length === 0) {
+      writeLine(yellow('No posts to display'))
+      if (isAuthenticated) {
+        writeLine('')
+        writeLine('Follow some users to see their posts in your feed!')
+        writeLine('Or use /feed to see popular posts')
+      }
+    } else {
+      writeLine('')
+      writeLine(green(`Showing ${posts.length} posts:`))
+      writeLine('')
+
+      posts.forEach((post) => {
+        writeLine(renderTerminalPost(post, true))
+      })
+    }
+  }, [isAuthenticated, posts, loadHomeFeed, loadDiscoveryFeed, writeLine])
+
+  const { executeCommand } = useTerminalCommands({
+    onPost: handlePost,
+    onFeed: handleFeed,
+    onLike: handleLike,
+    onFollow: handleFollow,
+    onUnfollow: handleUnfollow,
+    onLevels: handleLevels,
+    onProfile: handleProfile,
+    onUnlocks: handleUnlocks,
+    onHelp: () => {
+      writeLine(yellow('Available commands:'))
+      writeLine('  /post <content>       - Create a new post')
+      writeLine('  /feed                 - Refresh and view feed')
+      writeLine('  /like <post_id>       - Like a post')
+      writeLine('  /follow <username>    - Follow a user')
+      writeLine('  /unfollow <username>  - Unfollow a user')
+      writeLine('  /levels               - View level progression table')
+      writeLine('  /unlocks              - View feature unlock roadmap')
+      writeLine('  /profile [user]       - View character sheet')
+      writeLine('  /help                 - Show this help')
+    },
+    onClear: () => {
+      setTerminalOutput('')
+    },
+  })
+
+  const handleCommand = useCallback(
+    async (command: string) => {
+      writeLine(`> ${command}`)
+      const result = await executeCommand(command)
+      if (result) {
+        writeLine(result)
+      }
+    },
+    [executeCommand, writeLine]
+  )
+
+  // Display welcome message and initial feed
+  useEffect(() => {
+    if (user && posts.length > 0 && xpProgress) {
+      const xpBar = renderTerminalXPBar(
+        xpProgress.current_level,
+        xpProgress.total_xp,
+        xpProgress.xp_for_next_level,
+        xpProgress.progress_percent
+      )
+
+      const welcome = [
+        green('═'.repeat(60)),
+        green('Welcome to RPG Social Media!'),
+        xpBar,
+        green('═'.repeat(60)),
+        '',
+        yellow(`Showing ${posts.length} posts:`),
+        '',
+      ].join('\r\n')
+
+      setTerminalOutput(
+        welcome +
+          posts.map((post) => renderTerminalPost(post, true)).join('\r\n') +
+          '\r\n'
+      )
+    }
+  }, [user, posts, xpProgress])
+
+  return (
+    <div className="home-page">
+      <Terminal onCommand={handleCommand} initialContent={terminalOutput} />
+    </div>
+  )
+}
