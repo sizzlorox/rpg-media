@@ -195,10 +195,12 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
       handler: () => {
         if (options.onHelp) {
           options.onHelp()
+          return '' // onHelp callback already writes output
         }
+        // Fallback if no onHelp provided
         return commands
           .map((cmd) => `${cmd.usage.padEnd(40)} - ${cmd.description}`)
-          .join('\n')
+          .join('\r\n')
       },
       description: 'Show this help message',
       usage: '/help',
