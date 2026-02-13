@@ -143,3 +143,56 @@ body {
 .pulse-glow {
   animation: pulse-glow 2s infinite;
 }
+
+/* Responsive terminal optimizations */
+
+/* Mobile devices */
+@media (max-width: 640px) {
+  .terminal-container {
+    border-width: 1px;
+    border-radius: 2px;
+  }
+
+  .xterm {
+    padding: 5px;
+  }
+
+  /* Lighter scanline effect for mobile performance */
+  .terminal-container::before {
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 255, 0, 0.03) 0px,
+      transparent 1px,
+      transparent 2px,
+      rgba(0, 255, 0, 0.03) 3px
+    );
+  }
+
+  /* Prevent text selection on mobile */
+  .terminal-container {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Tablets */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .terminal-container {
+    border-width: 1.5px;
+  }
+
+  .xterm {
+    padding: 8px;
+  }
+}
+
+/* Safe area support for notched devices */
+@supports (padding: max(0px)) {
+  .terminal-container {
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}

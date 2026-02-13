@@ -1,10 +1,12 @@
 // Terminal component wrapper for xterm.js
 // MUD-style terminal interface with green-on-black theme
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
+import { getResponsiveConfig, getCurrentViewportWidth } from '../utils/terminal-responsive'
+import { renderWelcomeMessage } from '../utils/welcome-message'
 
 interface TerminalProps {
   onCommand?: (command: string) => void
@@ -28,8 +30,23 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
   // Cursor position state (position within commandBuffer, 0 = start, length = end)
   const cursorPositionRef = useRef<number>(0)
 
+  // Responsive configuration state
+  const [responsiveConfig, setResponsiveConfig] = useState(() =>
+    getResponsiveConfig(getCurrentViewportWidth())
+  )
+
+  // Create responsive config updater
+  const updateResponsiveConfig = useCallback(() => {
+    const width = getCurrentViewportWidth()
+    const newConfig = getResponsiveConfig(width)
+    setResponsiveConfig(newConfig)
+  }, [])
+
   useEffect(() => {
     if (!terminalRef.current) return
+
+    // Get responsive configuration
+    const config = responsiveConfig.config
 
     // Create terminal with MUD theme
     const term = new XTerm({
@@ -57,12 +74,12 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
         brightWhite: '#ffffff',
       },
       fontFamily: 'IBM Plex Mono, Courier New, monospace',
-      fontSize: 14,
+      fontSize: config.fontSize,      // Responsive font size
       cursorBlink: true,
       cursorStyle: 'block',
       scrollback: 1000,
-      rows: 30,
-      cols: 80,
+      rows: config.minRows,            // Responsive rows
+      cols: config.minCols,            // Responsive cols
     })
 
     // Add fit addon
@@ -79,21 +96,18 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
     // Focus terminal on load
     term.focus()
 
-    // Display welcome message
-    term.write('\x1b[32m') // Green color
-    term.write('╔══════════════════════════════════════════════════════════════════╗\r\n')
-    term.write('║                        SOCIAL FORGE                              ║\r\n')
-    term.write('║   Level up through engagement. Your profile is your character.  ║\r\n')
-    term.write('╚══════════════════════════════════════════════════════════════════╝\r\n')
+    // Display responsive welcome message with 3D ASCII logo
+    const welcomeMessage = renderWelcomeMessage(
+      config.minCols,
+      responsiveConfig.logoType
+    )
+    term.write(welcomeMessage)
     term.write('\r\n')
 
     if (initialContent) {
       term.write(initialContent + '\r\n')
     }
 
-    term.write('\x1b[33m') // Yellow
-    term.write('> Type /help for commands\r\n')
-    term.write('\x1b[32m') // Back to green
     term.write('\r\n> ')
 
     // Constants for command history and autocomplete
@@ -504,19 +518,38 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
       }
     })
 
-    // Resize handler
-    const handleResize = () => {
-      fitAddon.fit()
+    // Cleanup
+    return () => {
+      term.dispose()
+    }
+  }, [onCommand, initialContent, responsiveConfig])
+
+  // Enhanced resize handler with responsive config updates
+  const handleResize = useCallback(() => {
+    updateResponsiveConfig()
+
+    if (fitAddonRef.current) {
+      fitAddonRef.current.fit()
+    }
+  }, [updateResponsiveConfig])
+
+  // Add ResizeObserver for better responsiveness
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize()
+    })
+
+    if (terminalRef.current) {
+      resizeObserver.observe(terminalRef.current)
     }
 
     window.addEventListener('resize', handleResize)
 
-    // Cleanup
     return () => {
+      resizeObserver.disconnect()
       window.removeEventListener('resize', handleResize)
-      term.dispose()
     }
-  }, [onCommand, initialContent])
+  }, [handleResize])
 
   return (
     <div
@@ -524,8 +557,8 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
       className="terminal-container"
       style={{
         width: '100%',
-        height: '100vh',
-        padding: '20px',
+        height: responsiveConfig.config.height,   // Responsive height
+        padding: responsiveConfig.config.padding, // Responsive padding
         backgroundColor: '#000000',
         boxShadow: '0 0 20px rgba(0, 255, 0, 0.3)',
       }}
