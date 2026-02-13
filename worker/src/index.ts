@@ -65,22 +65,34 @@ export default {
       })
     }
 
-    // Wrap non-OPTIONS requests with Sentry
-    return Sentry.withSentry(
-      {
-        dsn: env.SENTRY_DSN,
-        environment: env.ENVIRONMENT || 'production',
-        tracesSampleRate: 0.1,
-        beforeSend(event) {
-          // Scrub sensitive data from error events
-          if (event.request?.headers) {
-            delete event.request.headers['Authorization']
-            delete event.request.headers['Cookie']
-          }
-          return event
-        },
-      },
-      () => app.fetch(request, env, ctx)
-    )
+    // Wrap non-OPTIONS requests with Sentry (with fallback)
+    try {
+      // Only initialize Sentry if DSN is provided
+      if (env.SENTRY_DSN) {
+        return await Sentry.withSentry(
+          {
+            dsn: env.SENTRY_DSN,
+            environment: env.ENVIRONMENT || 'production',
+            tracesSampleRate: 0.1,
+            beforeSend(event) {
+              // Scrub sensitive data from error events
+              if (event.request?.headers) {
+                delete event.request.headers['Authorization']
+                delete event.request.headers['Cookie']
+              }
+              return event
+            },
+          },
+          () => app.fetch(request, env, ctx)
+        )
+      }
+
+      // Fallback: Run without Sentry if DSN not set
+      return await app.fetch(request, env, ctx)
+    } catch (error) {
+      // Sentry initialization failed - run without it
+      console.error('Sentry initialization failed:', error)
+      return await app.fetch(request, env, ctx)
+    }
   },
 }
