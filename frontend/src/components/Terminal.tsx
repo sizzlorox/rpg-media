@@ -11,9 +11,10 @@ import { renderWelcomeMessage } from '../utils/welcome-message'
 interface TerminalProps {
   onCommand?: (command: string, terminalCols: number) => void
   initialContent?: string
+  skipWelcome?: boolean  // Skip rendering welcome message on mount
 }
 
-export function Terminal({ onCommand, initialContent }: TerminalProps) {
+export function Terminal({ onCommand, initialContent, skipWelcome = false }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -96,13 +97,15 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
     // Focus terminal on load
     term.focus()
 
-    // Display responsive welcome message with 3D ASCII logo
-    const welcomeMessage = renderWelcomeMessage(
-      config.minCols,
-      responsiveConfig.logoType
-    )
-    term.write(welcomeMessage)
-    term.write('\r\n')
+    // Display responsive welcome message with 3D ASCII logo (only if not skipped)
+    if (!skipWelcome) {
+      const welcomeMessage = renderWelcomeMessage(
+        config.minCols,
+        responsiveConfig.logoType
+      )
+      term.write(welcomeMessage)
+      term.write('\r\n')
+    }
 
     if (initialContent) {
       term.write(initialContent + '\r\n')
@@ -512,7 +515,7 @@ export function Terminal({ onCommand, initialContent }: TerminalProps) {
     return () => {
       term.dispose()
     }
-  }, [onCommand, initialContent, responsiveConfig])
+  }, [onCommand, initialContent, skipWelcome, responsiveConfig])
 
   // Enhanced resize handler with responsive config updates
   const handleResize = useCallback(() => {

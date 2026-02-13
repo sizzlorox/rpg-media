@@ -24,20 +24,25 @@ export function HomePage() {
   const { pagination, loadComments, lastViewedPostId } = useComments()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
   const terminalColsRef = useRef<number>(80) // Stores current terminal width
+  const hasLoadedInitialData = useRef(false)
+  const isRefreshingRef = useRef(false)
 
   const writeLine = useCallback((text: string) => {
     setTerminalOutput((prev) => prev + text + '\r\n')
   }, [])
 
-  // Load initial feed and XP progress
+  // Load initial feed and XP progress (only once per auth state)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !hasLoadedInitialData.current) {
       loadHomeFeed()
       loadXPProgress()
-    } else {
+      hasLoadedInitialData.current = true
+    } else if (!isAuthenticated && !hasLoadedInitialData.current) {
       loadDiscoveryFeed()
+      hasLoadedInitialData.current = true
     }
-  }, [isAuthenticated, loadHomeFeed, loadDiscoveryFeed, loadXPProgress])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]) // Only depend on isAuthenticated, not the callback functions
 
   const handleRegister = useCallback(
     async (username: string, password: string) => {
@@ -91,6 +96,7 @@ export function HomePage() {
         }
 
         // Refresh feed and XP progress
+        isRefreshingRef.current = true
         await Promise.all([loadHomeFeed(), refreshCharacter()])
       } catch (error) {
         writeLine(red(`✗ Failed to create post: ${(error as Error).message}`))
@@ -120,6 +126,7 @@ export function HomePage() {
         }
 
         // Refresh feed and XP progress
+        isRefreshingRef.current = true
         await Promise.all([loadHomeFeed(), refreshCharacter()])
       } catch (error) {
         writeLine(red(`✗ Failed to like post: ${(error as Error).message}`))
@@ -149,6 +156,7 @@ export function HomePage() {
         }
 
         // Refresh feed and XP progress
+        isRefreshingRef.current = true
         await Promise.all([loadHomeFeed(), refreshCharacter()])
       } catch (error) {
         writeLine(red(`✗ Failed to comment on post: ${(error as Error).message}`))
@@ -429,9 +437,19 @@ export function HomePage() {
     [executeCommand, writeLine]
   )
 
-  // Display welcome message and initial feed
+  // Display welcome message and initial feed ONCE when all data is ready
   useEffect(() => {
-    if (user && posts.length > 0 && xpProgress) {
+    // Skip if this is a refresh after an action (not initial load)
+    if (isRefreshingRef.current) {
+      isRefreshingRef.current = false
+      return
+    }
+
+    // Only run if initial data was requested
+    if (!hasLoadedInitialData.current) return
+
+    // Wait for ALL data to be ready
+    if (isAuthenticated && user && posts.length > 0 && xpProgress) {
       const cols = terminalColsRef.current || 80
       const width = getResponsiveWidth(cols)
 
@@ -458,12 +476,37 @@ export function HomePage() {
           posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') +
           '\r\n'
       )
+
+      // Mark as complete so this doesn't run again
+      hasLoadedInitialData.current = false
+    } else if (!isAuthenticated && posts.length > 0) {
+      // For unauthenticated users (discovery feed)
+      const cols = terminalColsRef.current || 80
+      const width = getResponsiveWidth(cols)
+
+      const welcome = [
+        green('═'.repeat(width)),
+        green('Welcome to Social Forge!'),
+        green('═'.repeat(width)),
+        '',
+        yellow(`Showing ${posts.length} popular posts:`),
+        '',
+      ].join('\r\n')
+
+      setTerminalOutput(
+        welcome +
+          posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') +
+          '\r\n'
+      )
+
+      // Mark as complete so this doesn't run again
+      hasLoadedInitialData.current = false
     }
-  }, [user, posts, xpProgress])
+  }, [isAuthenticated, user, posts, xpProgress])
 
   return (
     <div className="home-page">
-      <Terminal onCommand={handleCommand} initialContent={terminalOutput} />
+      <Terminal onCommand={handleCommand} initialContent={terminalOutput} skipWelcome={true} />
     </div>
   )
 }
