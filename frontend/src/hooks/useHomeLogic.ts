@@ -55,10 +55,6 @@ interface FollowResponse {
   level_up: boolean
 }
 
-// Module-level flags to prevent React Strict Mode from clearing feed on remount
-let hasShownWelcomeMessage = false
-let lastPostsCount = 0
-
 export function useHomeLogic() {
   const { user, isAuthenticated, login, register } = useAuth()
   const { posts, loadDiscoveryFeed, loadHomeFeed } = useFeed()
@@ -70,6 +66,10 @@ export function useHomeLogic() {
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1024
   )
+  const [hasShownWelcome, setHasShownWelcome] = useState(false)
+  const [resizeKey, setResizeKey] = useState(0)
+  const previousBreakpointRef = useRef<'mobile' | 'tablet' | 'desktop' | null>(null)
+  const lastPostsCountRef = useRef(0)
 
   // Calculate terminal columns - same logic used on both initial render and resize
   const calculateTerminalCols = useCallback(() => {
@@ -80,7 +80,20 @@ export function useHomeLogic() {
   // Listen for window resize to update terminal width
   useEffect(() => {
     const handleResize = () => {
-      setWindowWidth(window.innerWidth)
+      const newWidth = window.innerWidth
+      setWindowWidth(newWidth)
+
+      // Detect breakpoint change
+      const responsiveConfig = getResponsiveConfig(newWidth)
+      const newBreakpoint = responsiveConfig.breakpoint
+
+      // Trigger welcome re-render only on breakpoint transition
+      if (previousBreakpointRef.current &&
+          previousBreakpointRef.current !== newBreakpoint) {
+        setResizeKey(prev => prev + 1)
+        setHasShownWelcome(false)
+      }
+      previousBreakpointRef.current = newBreakpoint
 
       // Update terminal columns ref using the same calculation as initial render
       const cols = calculateTerminalCols()
@@ -424,15 +437,15 @@ export function useHomeLogic() {
     }
 
     // Check if posts just arrived (went from 0 to > 0)
-    const postsJustArrived = lastPostsCount === 0 && posts.length > 0
+    const postsJustArrived = lastPostsCountRef.current === 0 && posts.length > 0
 
-    // Update lastPostsCount IMMEDIATELY to survive React Strict Mode remounts
+    // Update lastPostsCountRef IMMEDIATELY to survive React Strict Mode remounts
     if (postsJustArrived) {
-      lastPostsCount = posts.length
+      lastPostsCountRef.current = posts.length
     }
 
-    // Only skip if we've shown welcome AND posts haven't just arrived
-    if (hasShownWelcomeMessage && !postsJustArrived) {
+    // Only skip if we've shown welcome AND posts haven't just arrived AND no resize
+    if (hasShownWelcome && !postsJustArrived && resizeKey === 0) {
       return
     }
 
@@ -464,7 +477,7 @@ export function useHomeLogic() {
         : welcome
 
       terminal.setContent(content)
-      hasShownWelcomeMessage = true
+      setHasShownWelcome(true)
     } else {
       const welcome = [
         asciiWelcome,
@@ -478,10 +491,10 @@ export function useHomeLogic() {
         : welcome
 
       terminal.setContent(content)
-      hasShownWelcomeMessage = true
+      setHasShownWelcome(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user, posts, xpProgress, windowWidth, calculateTerminalCols])
+  }, [isAuthenticated, user, posts, xpProgress, windowWidth, calculateTerminalCols, resizeKey])
 
   const handleCommand = useCallback(
     async (command: string, terminalCols: number = 80) => {

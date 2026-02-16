@@ -217,6 +217,12 @@ class CustomTerminalAPI {
     this.dataHandlers.forEach(handler => handler(data))
   }
 
+  updateDimensions(cols: number, rows: number, breakpoint: 'mobile' | 'tablet' | 'desktop') {
+    this.cols = cols
+    this.rows = rows
+    this.breakpoint = breakpoint
+  }
+
   // Replace the current input line (for terminal input updates)
   replaceInputLine(text: string) {
     // Remove the current incomplete line if it exists
@@ -345,6 +351,44 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
       onReady(api)
     }
   }, [scrollBuffer, ansiParser, cols, rows, breakpoint, onReady, handleImageLoadStart, handleImageLoadComplete])
+
+  // Update viewport dimensions on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const width = typeof window !== 'undefined' ? window.innerWidth : 1024
+      const newResponsiveConfig = getResponsiveConfig(width)
+
+      // Update viewport dimensions with new font size
+      setViewport(prev => ({
+        ...prev,
+        lineHeight: newResponsiveConfig.config.fontSize * 1.2,
+        charWidth: newResponsiveConfig.config.fontSize * 0.6
+      }))
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Update terminal API dimensions on resize
+  useEffect(() => {
+    const handleResize = () => {
+      const width = typeof window !== 'undefined' ? window.innerWidth : 1024
+      const responsiveConfig = getResponsiveConfig(width)
+      const newBreakpoint: 'mobile' | 'tablet' | 'desktop' =
+        width <= 640 ? 'mobile' : width <= 1024 ? 'tablet' : 'desktop'
+
+      const newRows = config.rows || responsiveConfig.config.minRows
+      const newCols = config.cols || responsiveConfig.config.minCols
+
+      if (terminalRef.current) {
+        terminalRef.current.updateDimensions(newCols, newRows, newBreakpoint)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [config.rows, config.cols])
 
   // Setup keyboard event handling (separate effect that always runs)
   useEffect(() => {
