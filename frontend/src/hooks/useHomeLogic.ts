@@ -456,7 +456,8 @@ export function useHomeLogic() {
       terminal.setContent(content)
       hasShownWelcomeMessage = true
     }
-  }, [isAuthenticated, user, posts, xpProgress, terminal])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user, posts, xpProgress])
 
   const handleCommand = useCallback(
     async (command: string, terminalCols: number = 80) => {

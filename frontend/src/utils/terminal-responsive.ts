@@ -91,18 +91,6 @@ export function getResponsiveConfig(width: number): ResponsiveBreakpoint {
   // and cap at 80 for desktop readability
   const finalCols = Math.max(config.minCols, Math.min(calculatedCols, 80))
 
-  console.log('[Terminal Responsive]', {
-    width,
-    breakpoint: breakpoint.breakpoint,
-    fontSize: config.fontSize,
-    padding: totalPadding,
-    safeAreaInsets,
-    charWidth,
-    availableWidth,
-    calculatedCols,
-    finalCols
-  })
-
   config.minCols = finalCols
 
   return {
