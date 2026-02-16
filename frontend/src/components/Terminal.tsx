@@ -18,23 +18,39 @@ interface TerminalProps {
 }
 
 function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onReady, username }: TerminalProps) {
-  // Get responsive styling configuration
-  const width = typeof window !== 'undefined' ? window.innerWidth : 1024
-  const { config, logoType } = getResponsiveConfig(width)
-  const cols = config.minCols
+  // Get responsive styling configuration with reactive state
+  const [terminalDimensions, setTerminalDimensions] = useState(() => {
+    const width = typeof window !== 'undefined' ? window.innerWidth : 1024
+    const { config, logoType } = getResponsiveConfig(width)
+    return { cols: config.minCols, logoType, config }
+  })
+
+  const cols = terminalDimensions.cols
 
   // Build prompt based on username
   const getPrompt = useCallback(() => {
     return username ? `${username}@socialforge:` : '>'
   }, [username])
 
+  // Update dimensions on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth
+      const { config, logoType } = getResponsiveConfig(width)
+      setTerminalDimensions({ cols: config.minCols, logoType, config })
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   // Initialize custom terminal
   const customTerminal = useCustomTerminal({
-    config,
+    config: terminalDimensions.config,
     onReady: (term) => {
       // Display welcome message if not skipped
       if (!skipWelcome) {
-        const welcomeMessage = renderWelcomeMessage(cols, logoType)
+        const welcomeMessage = renderWelcomeMessage(cols, terminalDimensions.logoType)
         term.write(welcomeMessage)
         term.write('\r\n')
       }

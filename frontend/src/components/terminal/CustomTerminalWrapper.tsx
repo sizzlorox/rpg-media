@@ -586,7 +586,7 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
           fontFamily: 'IBM Plex Mono, Courier New, monospace',
           fontSize: `${responsiveConfig.config.fontSize}px`,
           lineHeight: `${viewport.lineHeight}px`,
-          padding: '10px',
+          padding: responsiveConfig.config.padding,
           outline: 'none',
           cursor: 'text'
         }}

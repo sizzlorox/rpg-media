@@ -413,8 +413,8 @@ export function useHomeLogic() {
       return
     }
 
-    const cols = terminal.terminalCols.current || 80
     const responsiveConfig = getResponsiveConfig(getCurrentViewportWidth())
+    const cols = terminal.terminalCols.current || responsiveConfig.config.minCols
     const asciiWelcome = renderWelcomeMessage(cols, responsiveConfig.logoType)
 
     if (isAuthenticated && user) {
