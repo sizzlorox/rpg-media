@@ -59,8 +59,31 @@ export const RESPONSIVE_BREAKPOINTS: ResponsiveBreakpoint[] = [
 ]
 
 export function getResponsiveConfig(width: number): ResponsiveBreakpoint {
-  return RESPONSIVE_BREAKPOINTS.find(bp => width <= bp.maxWidth)
+  const breakpoint = RESPONSIVE_BREAKPOINTS.find(bp => width <= bp.maxWidth)
     || RESPONSIVE_BREAKPOINTS[2]
+
+  // Calculate actual available columns based on viewport width
+  const config = { ...breakpoint.config }
+
+  // Parse padding (e.g., "8px" -> 8)
+  const paddingValue = parseInt(config.padding) || 0
+  const totalPadding = paddingValue * 2 // left + right
+
+  // Character width is approximately 0.6em for monospace fonts
+  const charWidth = config.fontSize * 0.6
+
+  // Calculate how many characters actually fit
+  const availableWidth = width - totalPadding
+  const calculatedCols = Math.floor(availableWidth / charWidth)
+
+  // Use calculated columns, but respect the minCols as an absolute minimum
+  // and cap at 80 for desktop readability
+  config.minCols = Math.max(config.minCols, Math.min(calculatedCols, 80))
+
+  return {
+    ...breakpoint,
+    config
+  }
 }
 
 export function getCurrentViewportWidth(): number {
