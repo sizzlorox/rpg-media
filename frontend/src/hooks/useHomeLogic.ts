@@ -67,6 +67,19 @@ export function useHomeLogic() {
   const terminal = useTerminal()
 
   const isRefreshingRef = useRef(false)
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1024
+  )
+
+  // Listen for window resize to update terminal width
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Data fetching logic - consolidated into one effect
   useEffect(() => {
@@ -457,7 +470,7 @@ export function useHomeLogic() {
       hasShownWelcomeMessage = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user, posts, xpProgress])
+  }, [isAuthenticated, user, posts, xpProgress, windowWidth])
 
   const handleCommand = useCallback(
     async (command: string, terminalCols: number = 80) => {
