@@ -38,8 +38,11 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
           `/feed/home?limit=${limit}&offset=${offset}`
         )
 
-        const newPosts = offset === 0 ? result.posts : [...posts, ...result.posts]
-        setPosts(newPosts)
+        let newPosts: PostWithAuthor[] = []
+        setPosts(prevPosts => {
+          newPosts = offset === 0 ? result.posts : [...prevPosts, ...result.posts]
+          return newPosts
+        })
 
         setHasMore(result.has_more)
         setLastFeedType('home')
@@ -51,7 +54,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
         setIsLoading(false)
       }
     },
-    [limit, posts]
+    [limit]
   )
 
   const loadDiscoveryFeed = useCallback(
@@ -64,8 +67,11 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
           `/feed/discover?limit=${limit}&offset=${offset}`
         )
 
-        const newPosts = offset === 0 ? result.posts : [...posts, ...result.posts]
-        setPosts(newPosts)
+        let newPosts: PostWithAuthor[] = []
+        setPosts(prevPosts => {
+          newPosts = offset === 0 ? result.posts : [...prevPosts, ...result.posts]
+          return newPosts
+        })
 
         setHasMore(result.has_more)
         setLastFeedType('discover')
@@ -77,7 +83,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
         setIsLoading(false)
       }
     },
-    [limit, posts]
+    [limit]
   )
 
   const refresh = useCallback(async () => {
