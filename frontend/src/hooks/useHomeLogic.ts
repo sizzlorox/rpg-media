@@ -433,10 +433,8 @@ export function useHomeLogic() {
         : welcome
 
       terminal.setContent(content)
-      // Only mark as shown if we have posts
-      if (posts.length > 0) {
-        hasShownWelcomeMessage = true
-      }
+      // Mark as shown immediately to prevent re-renders
+      hasShownWelcomeMessage = true
     } else if (!isAuthenticated) {
       console.log('[useHomeLogic] Showing unauthenticated welcome, postsLength:', posts.length)
       const welcome = [
@@ -451,10 +449,8 @@ export function useHomeLogic() {
         : welcome
 
       terminal.setContent(content)
-      // Only mark as shown if we have posts
-      if (posts.length > 0) {
-        hasShownWelcomeMessage = true
-      }
+      // Mark as shown immediately to prevent re-renders
+      hasShownWelcomeMessage = true
     } else {
       console.warn('[useHomeLogic] NOT showing welcome - conditions not met', {
         isAuthenticated,
