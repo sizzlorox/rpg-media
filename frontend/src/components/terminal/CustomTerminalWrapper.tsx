@@ -24,6 +24,7 @@ class CustomTerminalAPI {
   private breakpoint: 'mobile' | 'tablet' | 'desktop'
   private currentLineCells: any[] = [] // Buffer for the current line being edited
   private onImageLoadStart?: (urls: string[]) => void
+  public shouldAutoScrollAfterRender = false
 
   constructor(
     scrollBuffer: any,
@@ -46,6 +47,8 @@ class CustomTerminalAPI {
   }
 
   write(text: string) {
+    // Check if user is at bottom before adding content
+    const shouldAutoScroll = this.isAtBottom()
 
     // Parse image markers
     const { text: cleanText, images } = parseImageMarkers(text)
@@ -55,7 +58,6 @@ class CustomTerminalAPI {
 
     // Check if this is a content block (has newlines) or interactive input
     const hasNewline = cells.some(cell => cell.char === '\n' || cell.char === '\r')
-
 
     if (hasNewline) {
       // CONTENT BLOCK MODE: Write complete lines with newlines
@@ -150,12 +152,24 @@ class CustomTerminalAPI {
       }
     }
 
-    // Don't auto-scroll - let user control scroll position
-    // Auto-scroll is handled in Terminal.tsx only on initial load
+    // Mark that we should auto-scroll after React re-renders
+    if (shouldAutoScroll) {
+      this.shouldAutoScrollAfterRender = true
+    }
   }
 
   writeln(text: string) {
     this.write(text + '\r\n')
+  }
+
+  private isAtBottom(): boolean {
+    if (!this.containerRef.current) return true
+
+    const container = this.containerRef.current
+    const threshold = 50 // pixels - consider "at bottom" if within 50px
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+
+    return distanceFromBottom <= threshold
   }
 
   clear() {
@@ -177,8 +191,14 @@ class CustomTerminalAPI {
   }
 
   scrollToBottom() {
-    // Disabled auto-scroll to prevent scroll jumping issues
-    // User can manually scroll to see content
+    if (!this.containerRef.current) return
+
+    // Use setTimeout to ensure React has fully re-rendered with new content
+    setTimeout(() => {
+      if (this.containerRef.current) {
+        this.containerRef.current.scrollTop = this.containerRef.current.scrollHeight
+      }
+    }, 0)
   }
 
   onData(handler: (data: string) => void): { dispose: () => void } {
@@ -388,6 +408,14 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
       containerRef.current?.removeEventListener('keydown', handleKeyDown)
     }
   }, []) // Empty deps - only set up once and cleanup on unmount
+
+  // Auto-scroll after buffer updates if needed
+  useEffect(() => {
+    if (terminalRef.current?.shouldAutoScrollAfterRender) {
+      terminalRef.current.shouldAutoScrollAfterRender = false
+      terminalRef.current.scrollToBottom()
+    }
+  }, [bufferRevision])
 
   // Handle scroll with requestAnimationFrame batching for 60fps
   const scrollRAFRef = useRef<number | null>(null)

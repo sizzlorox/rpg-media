@@ -171,12 +171,12 @@ body {
 
 /* Blinking cursor animation */
 @keyframes cursor-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 
 .terminal-cursor {
-  animation: cursor-blink 1s infinite;
+  animation: cursor-blink 0.8s steps(2, jump-none) infinite;
 }
 
 @keyframes pulse-glow {

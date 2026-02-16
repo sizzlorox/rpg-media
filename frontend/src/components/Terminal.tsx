@@ -3,7 +3,7 @@
  * Integration layer for custom terminal emulator with arrow key navigation
  */
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { renderWelcomeMessage } from '../utils/welcome-message'
 import { useCustomTerminal } from './terminal/CustomTerminalWrapper'
 import { TerminalErrorBoundary } from './terminal/TerminalErrorBoundary'
@@ -14,13 +14,19 @@ interface TerminalProps {
   initialContent?: string
   skipWelcome?: boolean
   onReady?: (terminal: any) => void
+  username?: string
 }
 
-function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onReady }: TerminalProps) {
+function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onReady, username }: TerminalProps) {
   // Get responsive styling configuration
   const width = typeof window !== 'undefined' ? window.innerWidth : 1024
   const { config, logoType } = getResponsiveConfig(width)
   const cols = config.minCols
+
+  // Build prompt based on username
+  const getPrompt = useCallback(() => {
+    return username ? `${username}@socialforge:` : '>'
+  }, [username])
 
   // Initialize custom terminal
   const customTerminal = useCustomTerminal({
@@ -42,7 +48,7 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
 
       // Initialize the input line only if showing welcome (not waiting for content)
       if (!skipWelcome || initialContent) {
-        term.replaceInputLine('> |')
+        term.replaceInputLine(`${getPrompt()} █`)
       }
 
       // Call parent onReady if provided
@@ -58,6 +64,18 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
   const commandHistoryRef = useRef<string[]>([])
   const historyIndexRef = useRef(-1)
 
+  // Cursor blink state
+  const [cursorVisible, setCursorVisible] = useState(true)
+
+  // Cursor blink effect
+  useEffect(() => {
+    const blinkInterval = setInterval(() => {
+      setCursorVisible(prev => !prev)
+    }, 500) // Blink every 500ms
+
+    return () => clearInterval(blinkInterval)
+  }, [])
+
   // Helper to build input line with cursor at current position
   const buildInputLineWithCursor = useCallback((buffer: string, cursorPos: number, isPassword: boolean = false): string => {
     let displayText = buffer
@@ -71,12 +89,13 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
       displayText = command + (username ? ' ' + username : '') + (password ? ' ' + '*'.repeat(password.length) : '')
     }
 
-    // Insert blinking cursor at current position
+    // Insert cursor at current position (blinks via state)
     const before = displayText.slice(0, cursorPos)
     const after = displayText.slice(cursorPos)
-    // Use ANSI inverse video for cursor: \x1B[7m for inverse, \x1B[27m to reset
-    return '> ' + before + '\x1B[7m|\x1B[27m' + after
-  }, [])
+    // Show/hide cursor based on blink state, using inverse video for visibility
+    const cursor = cursorVisible ? '\x1B[7m█\x1B[27m' : ' '
+    return `${getPrompt()} ` + before + cursor + after
+  }, [getPrompt, cursorVisible])
 
   // Simple command autocomplete
   const handleAutocomplete = useCallback((partial: string): string | null => {
@@ -114,7 +133,7 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
 
         // Commit the input line (remove cursor) before executing
         if (command) {
-          term.replaceInputLine('> ' + command)
+          term.replaceInputLine(`${getPrompt()} ` + command)
         }
         term.write('\r\n')
 
@@ -129,7 +148,7 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
           onCommand(command, cols)
         } else {
           // No command, show prompt immediately
-          term.replaceInputLine('> |')
+          term.replaceInputLine(`${getPrompt()} █`)
         }
 
         commandBufferRef.current = ''
@@ -209,7 +228,7 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
           historyIndexRef.current = -1
           commandBufferRef.current = ''
           cursorPosRef.current = 0
-          term.replaceInputLine('> |')
+          term.replaceInputLine(`${getPrompt()} █`)
         }
         return
       }
@@ -272,7 +291,7 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
         if (commandBufferRef.current.length > 0) {
           commandBufferRef.current = ''
           cursorPosRef.current = 0
-          term.replaceInputLine('> |')
+          term.replaceInputLine(`${getPrompt()} █`)
         }
         return
       }
@@ -282,7 +301,7 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
         term.write('^C\r\n')
         commandBufferRef.current = ''
         cursorPosRef.current = 0
-        term.replaceInputLine('> |')
+        term.replaceInputLine(`${getPrompt()} █`)
         return
       }
 
@@ -308,7 +327,25 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
 
     const disposable = customTerminal.terminalRef.current.onData(handleData)
     return () => disposable.dispose()
-  }, [customTerminal.terminalRef, onCommand, cols, handleAutocomplete, buildInputLineWithCursor])
+  }, [customTerminal.terminalRef, onCommand, cols, handleAutocomplete, buildInputLineWithCursor, getPrompt])
+
+  // Update input line when cursor blink state changes
+  useEffect(() => {
+    if (!customTerminal.isReady || !customTerminal.terminalRef.current) return
+
+    // Only update if we're not in the middle of command execution
+    const isPasswordField = (() => {
+      const parts = commandBufferRef.current.trim().split(/\s+/)
+      return (parts[0] === '/register' || parts[0] === '/login') && parts.length >= 3
+    })()
+
+    const displayLine = buildInputLineWithCursor(
+      commandBufferRef.current,
+      cursorPosRef.current,
+      isPasswordField
+    )
+    customTerminal.terminalRef.current.replaceInputLine(displayLine)
+  }, [cursorVisible, customTerminal, buildInputLineWithCursor])
 
   // Handle window resize
   useEffect(() => {
@@ -355,7 +392,7 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
 
       // Show the prompt after writing content
       if (customTerminal.terminalRef.current) {
-        customTerminal.terminalRef.current.replaceInputLine('> |')
+        customTerminal.terminalRef.current.replaceInputLine(`${getPrompt()} █`)
       }
 
       // Clear the needsPrompt flag if it was set

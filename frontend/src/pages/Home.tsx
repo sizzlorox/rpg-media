@@ -2,10 +2,12 @@
 
 import { Terminal } from '../components/Terminal'
 import { useHomeLogic } from '../hooks/useHomeLogic'
+import { useAuth } from '../hooks/useAuth'
 import '../styles/terminal.css'
 
 export function HomePage() {
   const { terminalOutput, handleCommand } = useHomeLogic()
+  const { user } = useAuth()
 
   return (
     <div className="home-page">
@@ -14,6 +16,7 @@ export function HomePage() {
           onCommand={handleCommand}
           initialContent={terminalOutput}
           skipWelcome={true}
+          username={user?.username}
         />
       </div>
     </div>

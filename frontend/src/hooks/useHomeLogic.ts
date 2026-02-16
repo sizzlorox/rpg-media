@@ -323,20 +323,19 @@ export function useHomeLogic() {
   const handleFeed = useCallback(async (subcommand?: string) => {
     if (subcommand === 'discover') {
       terminal.writeLine(cyan('Loading popular posts...'))
-      await loadDiscoveryFeed()
-      if (posts.length === 0) terminal.writeLine(yellow('No posts to display'))
+      const loadedPosts = await loadDiscoveryFeed()
+      if (loadedPosts.length === 0) terminal.writeLine(yellow('No posts to display'))
       else {
         terminal.writeLine('')
-        terminal.writeLine(green(`Showing ${posts.length} popular posts:`))
+        terminal.writeLine(green(`Showing ${loadedPosts.length} popular posts:`))
         terminal.writeLine('')
-        posts.forEach((post) => terminal.writeLine(renderTerminalPost(post, true, terminal.terminalCols.current)))
+        loadedPosts.forEach((post) => terminal.writeLine(renderTerminalPost(post, true, terminal.terminalCols.current)))
       }
     } else {
       terminal.writeLine(cyan('Loading feed...'))
-      if (isAuthenticated) await loadHomeFeed()
-      else await loadDiscoveryFeed()
+      const loadedPosts = isAuthenticated ? await loadHomeFeed() : await loadDiscoveryFeed()
 
-      if (posts.length === 0) {
+      if (loadedPosts.length === 0) {
         terminal.writeLine(yellow('No posts to display'))
         if (isAuthenticated) {
           terminal.writeLine('')
@@ -345,12 +344,12 @@ export function useHomeLogic() {
         }
       } else {
         terminal.writeLine('')
-        terminal.writeLine(green(`Showing ${posts.length} posts:`))
+        terminal.writeLine(green(`Showing ${loadedPosts.length} posts:`))
         terminal.writeLine('')
-        posts.forEach((post) => terminal.writeLine(renderTerminalPost(post, true, terminal.terminalCols.current)))
+        loadedPosts.forEach((post) => terminal.writeLine(renderTerminalPost(post, true, terminal.terminalCols.current)))
       }
     }
-  }, [isAuthenticated, posts, loadHomeFeed, loadDiscoveryFeed, terminal])
+  }, [isAuthenticated, loadHomeFeed, loadDiscoveryFeed, terminal])
 
   const { executeCommand } = useTerminalCommands({
     onRegister: handleRegister,

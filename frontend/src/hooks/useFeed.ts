@@ -14,8 +14,8 @@ interface UseFeedResult {
   isLoading: boolean
   hasMore: boolean
   error: string | null
-  loadHomeFeed: (offset?: number) => Promise<void>
-  loadDiscoveryFeed: (offset?: number) => Promise<void>
+  loadHomeFeed: (offset?: number) => Promise<PostWithAuthor[]>
+  loadDiscoveryFeed: (offset?: number) => Promise<PostWithAuthor[]>
   refresh: () => Promise<void>
 }
 
@@ -29,7 +29,7 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
   const [lastFeedType, setLastFeedType] = useState<'home' | 'discover'>('home')
 
   const loadHomeFeed = useCallback(
-    async (offset: number = 0) => {
+    async (offset: number = 0): Promise<PostWithAuthor[]> => {
       try {
         setIsLoading(true)
         setError(null)
@@ -38,25 +38,24 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
           `/feed/home?limit=${limit}&offset=${offset}`
         )
 
-        if (offset === 0) {
-          setPosts(result.posts)
-        } else {
-          setPosts((prev) => [...prev, ...result.posts])
-        }
+        const newPosts = offset === 0 ? result.posts : [...posts, ...result.posts]
+        setPosts(newPosts)
 
         setHasMore(result.has_more)
         setLastFeedType('home')
+        return newPosts
       } catch (err) {
         setError((err as Error).message)
+        return []
       } finally {
         setIsLoading(false)
       }
     },
-    [limit]
+    [limit, posts]
   )
 
   const loadDiscoveryFeed = useCallback(
-    async (offset: number = 0) => {
+    async (offset: number = 0): Promise<PostWithAuthor[]> => {
       try {
         setIsLoading(true)
         setError(null)
@@ -65,21 +64,20 @@ export function useFeed(options: UseFeedOptions = {}): UseFeedResult {
           `/feed/discover?limit=${limit}&offset=${offset}`
         )
 
-        if (offset === 0) {
-          setPosts(result.posts)
-        } else {
-          setPosts((prev) => [...prev, ...result.posts])
-        }
+        const newPosts = offset === 0 ? result.posts : [...posts, ...result.posts]
+        setPosts(newPosts)
 
         setHasMore(result.has_more)
         setLastFeedType('discover')
+        return newPosts
       } catch (err) {
         setError((err as Error).message)
+        return []
       } finally {
         setIsLoading(false)
       }
     },
-    [limit]
+    [limit, posts]
   )
 
   const refresh = useCallback(async () => {
