@@ -350,18 +350,26 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
     if (!customTerminal.isReady || !customTerminal.terminalRef.current) return
 
     // Only update if we're not in the middle of command execution
-    const isPasswordField = (() => {
-      const parts = commandBufferRef.current.trim().split(/\s+/)
-      return (parts[0] === '/register' || parts[0] === '/login') && parts.length >= 3
-    })()
+    const parts = commandBufferRef.current.trim().split(/\s+/)
+    const isPasswordField = (parts[0] === '/register' || parts[0] === '/login') && parts.length >= 3
 
-    const displayLine = buildInputLineWithCursor(
-      commandBufferRef.current,
-      cursorPosRef.current,
-      isPasswordField
-    )
+    // Build display line directly to avoid dependency on buildInputLineWithCursor
+    let displayText = commandBufferRef.current
+    if (isPasswordField) {
+      const command = parts[0] || ''
+      const username = parts[1] || ''
+      const password = parts[2] || ''
+      displayText = command + (username ? ' ' + username : '') + (password ? ' ' + '*'.repeat(password.length) : '')
+    }
+
+    const before = displayText.slice(0, cursorPosRef.current)
+    const after = displayText.slice(cursorPosRef.current)
+    const cursor = cursorVisible ? '\x1B[7m█\x1B[27m' : ' '
+    const displayLine = `${getPrompt()} ` + before + cursor + after
+
     customTerminal.terminalRef.current.replaceInputLine(displayLine)
-  }, [cursorVisible, customTerminal, buildInputLineWithCursor])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursorVisible, getPrompt])
 
   // Handle window resize
   useEffect(() => {
@@ -414,7 +422,8 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onR
       // Clear the needsPrompt flag if it was set
       needsPrompt.current = false
     }
-  }, [initialContent, customTerminal])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialContent])
 
   return customTerminal.renderTerminal()
 }
