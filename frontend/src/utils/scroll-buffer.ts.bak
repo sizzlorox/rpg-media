@@ -72,6 +72,10 @@ export class CircularScrollBuffer {
    */
   getVisibleRange(startLine: number, endLine: number): TerminalLine[] {
     const lines: TerminalLine[] = []
+    const oldest = this.getOldestLineNumber()
+    const newest = this.getNewestLineNumber()
+
+    console.log('[getVisibleRange] Request:', { startLine, endLine, oldest, newest, totalLines: this.totalLines })
 
     for (let i = startLine; i <= endLine; i++) {
       const line = this.getLine(i)
@@ -80,6 +84,7 @@ export class CircularScrollBuffer {
       }
     }
 
+    console.log('[getVisibleRange] Returning', lines.length, 'lines')
     return lines
   }
 

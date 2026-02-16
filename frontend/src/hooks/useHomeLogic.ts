@@ -396,16 +396,6 @@ export function useHomeLogic() {
 
   // Refined welcome message logic with ASCII art
   useEffect(() => {
-    console.log('[useHomeLogic] showInitialWelcome useEffect triggered', {
-      isRefreshing: isRefreshingRef.current,
-      hasShownWelcome: hasShownWelcomeMessage,
-      isAuthenticated,
-      hasUser: !!user,
-      postsLength: posts.length,
-      hasXpProgress: !!xpProgress,
-      lastPostsCount
-    })
-
     if (isRefreshingRef.current) {
       isRefreshingRef.current = false
       return
@@ -414,9 +404,19 @@ export function useHomeLogic() {
     // Check if posts just arrived (went from 0 to > 0)
     const postsJustArrived = lastPostsCount === 0 && posts.length > 0
 
+    // DEBUG: Log posts loading status
+    console.log('[POSTS DEBUG] useEffect trigger:', {
+      postsLength: posts.length,
+      lastPostsCount,
+      postsJustArrived,
+      hasShownWelcome: hasShownWelcomeMessage,
+      willRender: !hasShownWelcomeMessage || postsJustArrived,
+      posts: posts.map(p => ({ id: p.id.slice(0, 8), content: p.content.slice(0, 30) }))
+    })
+
     // Only skip if we've shown welcome AND posts haven't just arrived
     if (hasShownWelcomeMessage && !postsJustArrived) {
-      console.log('[useHomeLogic] Skipping - already shown and posts not newly arrived')
+      console.log('[POSTS DEBUG] Skipping render - already shown and no new posts')
       return
     }
 
@@ -425,7 +425,6 @@ export function useHomeLogic() {
     const asciiWelcome = renderWelcomeMessage(cols, responsiveConfig.logoType)
 
     if (isAuthenticated && user && xpProgress) {
-      console.log('[useHomeLogic] Showing authenticated welcome, postsLength:', posts.length)
       const xpBar = renderTerminalXPBar(xpProgress.current_level, xpProgress.total_xp, xpProgress.xp_for_next_level, xpProgress.progress_percent, cols)
       const welcome = [
         asciiWelcome,
@@ -440,12 +439,11 @@ export function useHomeLogic() {
         ? welcome + posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') + '\r\n'
         : welcome
 
+      console.log('[POSTS DEBUG] Authenticated - rendering content, length:', content.length, 'posts:', posts.length)
       terminal.setContent(content)
-      // Mark as shown and update posts count
       hasShownWelcomeMessage = true
       lastPostsCount = posts.length
     } else if (!isAuthenticated) {
-      console.log('[useHomeLogic] Showing unauthenticated welcome, postsLength:', posts.length)
       const welcome = [
         asciiWelcome,
         '',
@@ -457,17 +455,10 @@ export function useHomeLogic() {
         ? welcome + posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') + '\r\n'
         : welcome
 
+      console.log('[POSTS DEBUG] Unauthenticated - rendering content, length:', content.length, 'posts:', posts.length)
       terminal.setContent(content)
-      // Mark as shown and update posts count
       hasShownWelcomeMessage = true
       lastPostsCount = posts.length
-    } else {
-      console.warn('[useHomeLogic] NOT showing welcome - conditions not met', {
-        isAuthenticated,
-        hasUser: !!user,
-        postsLength: posts.length,
-        hasXpProgress: !!xpProgress
-      })
     }
   }, [isAuthenticated, user, posts, xpProgress, terminal])
 
