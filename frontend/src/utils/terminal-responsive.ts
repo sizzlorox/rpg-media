@@ -58,3 +58,55 @@ export function getResponsiveConfig(width: number): ResponsiveBreakpoint {
 export function getCurrentViewportWidth(): number {
   return window.innerWidth
 }
+
+// Responsive image sizing configuration
+export interface ImageSize {
+  maxWidth: number
+  maxHeight: number
+}
+
+const IMAGE_SIZES: Record<string, ImageSize> = {
+  mobile: { maxWidth: 280, maxHeight: 280 },
+  tablet: { maxWidth: 400, maxHeight: 400 },
+  desktop: { maxWidth: 600, maxHeight: 600 }
+}
+
+export function getResponsiveImageSize(breakpoint: string): ImageSize {
+  return IMAGE_SIZES[breakpoint] || IMAGE_SIZES.mobile
+}
+
+export function calculateImageDimensions(
+  naturalWidth: number,
+  naturalHeight: number,
+  maxWidth: number,
+  maxHeight: number
+): { width: number; height: number } {
+  // Handle zero dimensions
+  if (naturalWidth === 0 || naturalHeight === 0) {
+    return { width: naturalWidth, height: naturalHeight }
+  }
+
+  // Don't upscale small images
+  if (naturalWidth <= maxWidth && naturalHeight <= maxHeight) {
+    return { width: naturalWidth, height: naturalHeight }
+  }
+
+  // Calculate aspect ratio
+  const aspectRatio = naturalWidth / naturalHeight
+
+  // Scale down by width constraint
+  let width = Math.min(naturalWidth, maxWidth)
+  let height = width / aspectRatio
+
+  // If height exceeds max, scale by height instead
+  if (height > maxHeight) {
+    height = maxHeight
+    width = height * aspectRatio
+  }
+
+  // Return whole numbers
+  return {
+    width: Math.round(width),
+    height: Math.round(height)
+  }
+}

@@ -434,17 +434,8 @@ export function useHomeLogic() {
   const handleCommand = useCallback(
     async (command: string, terminalCols: number = 80) => {
       terminal.updateCols(terminalCols)
-      let displayCommand = command
-      const parts = command.trim().split(' ')
-      const cmd = parts[0].toLowerCase()
 
-      if ((cmd === '/login' || cmd === '/register') && parts.length >= 3) {
-        const maskedParts = [...parts]
-        maskedParts[2] = '*'.repeat(parts[2].length)
-        displayCommand = maskedParts.join(' ')
-      }
-
-      terminal.writeLine(`> ${displayCommand}`)
+      // Execute command and write result (Terminal.tsx handles displaying the input)
       const result = await executeCommand(command)
       if (result) terminal.writeLine(result)
     },

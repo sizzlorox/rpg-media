@@ -1,41 +1,34 @@
 /**
- * Terminal Component (Refactored)
- * Integration layer orchestrating modular terminal components
- *
- * This refactored version reduces complexity from 560 lines to ~100 lines
- * by delegating to specialized modules while maintaining 100% feature parity
+ * Terminal Component (Custom Implementation)
+ * Integration layer for custom terminal emulator with arrow key navigation
  */
 
 import { useEffect, useRef, useCallback } from 'react'
-import '@xterm/xterm/css/xterm.css'
 import { renderWelcomeMessage } from '../utils/welcome-message'
-
-// Modular components
-import { useTerminalStyling } from './terminal/TerminalStyling'
-import { useTerminalCore } from './terminal/TerminalCore'
-import { useTerminalOutput } from './terminal/TerminalOutput'
+import { useCustomTerminal } from './terminal/CustomTerminalWrapper'
 import { TerminalErrorBoundary } from './terminal/TerminalErrorBoundary'
+import { getResponsiveConfig } from '../utils/terminal-responsive'
 
 interface TerminalProps {
   onCommand?: (command: string, terminalCols: number) => void
   initialContent?: string
   skipWelcome?: boolean
+  onReady?: (terminal: any) => void
 }
 
-function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: TerminalProps) {
+function TerminalComponent({ onCommand, initialContent, skipWelcome = false, onReady }: TerminalProps) {
   // Get responsive styling configuration
-  const { config: stylingConfig, updateConfig } = useTerminalStyling()
+  const width = typeof window !== 'undefined' ? window.innerWidth : 1024
+  const { config, logoType } = getResponsiveConfig(width)
+  const cols = config.minCols
 
-  // Initialize terminal core FIRST (so we have core.write available)
-  const core = useTerminalCore({
-    config: stylingConfig.config,
+  // Initialize custom terminal
+  const customTerminal = useCustomTerminal({
+    config,
     onReady: (term) => {
       // Display welcome message if not skipped
       if (!skipWelcome) {
-        const welcomeMessage = renderWelcomeMessage(
-          stylingConfig.cols,
-          stylingConfig.logoType
-        )
+        const welcomeMessage = renderWelcomeMessage(cols, logoType)
         term.write(welcomeMessage)
         term.write('\r\n')
       }
@@ -45,7 +38,17 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
         term.write(initialContent + '\r\n')
       }
 
-      term.write('\r\n> ')
+      term.write('\r\n')
+
+      // Initialize the input line only if showing welcome (not waiting for content)
+      if (!skipWelcome || initialContent) {
+        term.replaceInputLine('> |')
+      }
+
+      // Call parent onReady if provided
+      if (onReady) {
+        onReady(term)
+      }
     },
   })
 
@@ -54,6 +57,26 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
   const cursorPosRef = useRef(0)
   const commandHistoryRef = useRef<string[]>([])
   const historyIndexRef = useRef(-1)
+
+  // Helper to build input line with cursor at current position
+  const buildInputLineWithCursor = useCallback((buffer: string, cursorPos: number, isPassword: boolean = false): string => {
+    let displayText = buffer
+
+    // Handle password masking
+    if (isPassword) {
+      const parts = buffer.trim().split(/\s+/)
+      const command = parts[0] || ''
+      const username = parts[1] || ''
+      const password = parts[2] || ''
+      displayText = command + (username ? ' ' + username : '') + (password ? ' ' + '*'.repeat(password.length) : '')
+    }
+
+    // Insert blinking cursor at current position
+    const before = displayText.slice(0, cursorPos)
+    const after = displayText.slice(cursorPos)
+    // Use ANSI inverse video for cursor: \x1B[7m for inverse, \x1B[27m to reset
+    return '> ' + before + '\x1B[7m|\x1B[27m' + after
+  }, [])
 
   // Simple command autocomplete
   const handleAutocomplete = useCallback((partial: string): string | null => {
@@ -73,27 +96,44 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
 
   // Input handler with terminal echo
   useEffect(() => {
-    if (!core.terminalRef.current) return
+    if (!customTerminal.terminalRef.current) return
 
     const handleData = (data: string) => {
-      const term = core.terminalRef.current
+      const term = customTerminal.terminalRef.current
       if (!term) return
 
       const code = data.charCodeAt(0)
 
+      // Check if we're in password field
+      const parts = commandBufferRef.current.trim().split(/\s+/)
+      const isPasswordField = (parts[0] === '/register' || parts[0] === '/login') && parts.length >= 3
+
       // Enter key
       if (code === 13) {
-        term.write('\r\n')
         const command = commandBufferRef.current.trim()
+
+        // Commit the input line (remove cursor) before executing
+        if (command) {
+          term.replaceInputLine('> ' + command)
+        }
+        term.write('\r\n')
+
         if (command && onCommand) {
           // Save to history (add to front)
           commandHistoryRef.current.unshift(command)
           historyIndexRef.current = -1
-          onCommand(command, stylingConfig.cols)
+
+          // Mark that we need a prompt after command output is written
+          needsPrompt.current = true
+
+          onCommand(command, cols)
+        } else {
+          // No command, show prompt immediately
+          term.replaceInputLine('> |')
         }
+
         commandBufferRef.current = ''
         cursorPosRef.current = 0
-        term.write('> ')
         return
       }
 
@@ -101,10 +141,10 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
       if (code === 9) {
         const suggestion = handleAutocomplete(commandBufferRef.current)
         if (suggestion) {
-          // Clear current input
-          term.write('\r\x1B[K> ' + suggestion)
           commandBufferRef.current = suggestion
           cursorPosRef.current = suggestion.length
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
@@ -117,9 +157,8 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
           commandBufferRef.current = before + after
           cursorPosRef.current--
 
-          // Visual update: backspace, write rest of line + space, backspace to cursor
-          term.write('\b' + after + ' ')
-          term.write('\b'.repeat(after.length + 1))
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
@@ -127,8 +166,9 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
       // Arrow Left (\x1B[D)
       if (data === '\x1B[D') {
         if (cursorPosRef.current > 0) {
-          term.write(data)
           cursorPosRef.current--
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
@@ -136,8 +176,9 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
       // Arrow Right (\x1B[C)
       if (data === '\x1B[C') {
         if (cursorPosRef.current < commandBufferRef.current.length) {
-          term.write(data)
           cursorPosRef.current++
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
@@ -147,10 +188,10 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
         if (historyIndexRef.current < commandHistoryRef.current.length - 1) {
           historyIndexRef.current++
           const cmd = commandHistoryRef.current[historyIndexRef.current]
-          // Clear current line and write history command
-          term.write('\r\x1B[K> ' + cmd)
           commandBufferRef.current = cmd
           cursorPosRef.current = cmd.length
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, false)
+          term.replaceInputLine(displayLine)
         }
         return
       }
@@ -160,14 +201,15 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
         if (historyIndexRef.current > 0) {
           historyIndexRef.current--
           const cmd = commandHistoryRef.current[historyIndexRef.current]
-          term.write('\r\x1B[K> ' + cmd)
           commandBufferRef.current = cmd
           cursorPosRef.current = cmd.length
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, false)
+          term.replaceInputLine(displayLine)
         } else if (historyIndexRef.current === 0) {
           historyIndexRef.current = -1
-          term.write('\r\x1B[K> ')
           commandBufferRef.current = ''
           cursorPosRef.current = 0
+          term.replaceInputLine('> |')
         }
         return
       }
@@ -178,9 +220,9 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
           const before = commandBufferRef.current.slice(0, cursorPosRef.current)
           const after = commandBufferRef.current.slice(cursorPosRef.current + 1)
           commandBufferRef.current = before + after
-          // Redraw rest of line with trailing space, then backspace to cursor
-          term.write(after + ' ')
-          term.write('\b'.repeat(after.length + 1))
+
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
@@ -188,18 +230,19 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
       // Home key (\x1B[H or \x1B[1~) - Jump to line start
       if (data === '\x1B[H' || data === '\x1B[1~') {
         if (cursorPosRef.current > 0) {
-          term.write('\b'.repeat(cursorPosRef.current))
           cursorPosRef.current = 0
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
 
       // End key (\x1B[F or \x1B[4~) - Jump to line end
       if (data === '\x1B[F' || data === '\x1B[4~') {
-        const distance = commandBufferRef.current.length - cursorPosRef.current
-        if (distance > 0) {
-          term.write('\x1B[C'.repeat(distance))
+        if (cursorPosRef.current < commandBufferRef.current.length) {
           cursorPosRef.current = commandBufferRef.current.length
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
@@ -207,18 +250,19 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
       // Ctrl+A (code 1) - Jump to start
       if (code === 1) {
         if (cursorPosRef.current > 0) {
-          term.write('\b'.repeat(cursorPosRef.current))
           cursorPosRef.current = 0
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
 
       // Ctrl+E (code 5) - Jump to end
       if (code === 5) {
-        const distance = commandBufferRef.current.length - cursorPosRef.current
-        if (distance > 0) {
-          term.write('\x1B[C'.repeat(distance))
+        if (cursorPosRef.current < commandBufferRef.current.length) {
           cursorPosRef.current = commandBufferRef.current.length
+          const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+          term.replaceInputLine(displayLine)
         }
         return
       }
@@ -226,29 +270,27 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
       // Ctrl+U (code 21) - Clear line
       if (code === 21) {
         if (commandBufferRef.current.length > 0) {
-          term.write('\r\x1B[K> ')
           commandBufferRef.current = ''
           cursorPosRef.current = 0
+          term.replaceInputLine('> |')
         }
         return
       }
 
       // Ctrl+C (code 3) - Cancel current input
       if (code === 3) {
-        term.write('^C\r\n> ')
+        term.write('^C\r\n')
         commandBufferRef.current = ''
         cursorPosRef.current = 0
+        term.replaceInputLine('> |')
         return
       }
 
       // Ctrl+L (code 12) - Clear screen
       if (code === 12) {
         term.clear()
-        term.write('> ' + commandBufferRef.current)
-        // Restore cursor position
-        if (cursorPosRef.current < commandBufferRef.current.length) {
-          term.write('\b'.repeat(commandBufferRef.current.length - cursorPosRef.current))
-        }
+        const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+        term.replaceInputLine(displayLine)
         return
       }
 
@@ -259,52 +301,69 @@ function TerminalComponent({ onCommand, initialContent, skipWelcome = false }: T
         commandBufferRef.current = before + data + after
         cursorPosRef.current++
 
-        // Visual update: write character + rest of line, backspace to cursor
-        term.write(data + after)
-        if (after.length > 0) {
-          term.write('\b'.repeat(after.length))
-        }
+        const displayLine = buildInputLineWithCursor(commandBufferRef.current, cursorPosRef.current, isPasswordField)
+        term.replaceInputLine(displayLine)
       }
     }
 
-    const disposable = core.terminalRef.current.onData(handleData)
+    const disposable = customTerminal.terminalRef.current.onData(handleData)
     return () => disposable.dispose()
-  }, [core.terminalRef, onCommand, stylingConfig.cols, handleAutocomplete])
-
-  // Output handling
-  const output = useTerminalOutput({ terminal: core.terminalRef.current })
+  }, [customTerminal.terminalRef, onCommand, cols, handleAutocomplete, buildInputLineWithCursor])
 
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
-      updateConfig()
-      core.fit()
+      customTerminal.fit()
     }
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [updateConfig, core, stylingConfig.cols])
+  }, [customTerminal])
 
-  // Update initial content when it changes
+  // Track last written content to detect changes
+  const lastWrittenContent = useRef<string>('')
+  const needsPrompt = useRef(false)
+
+  // Update terminal content when initialContent changes
   useEffect(() => {
-    if (initialContent && core.isReady) {
-      output.write(initialContent)
-    }
-  }, [initialContent, core.isReady, output])
+    if (!customTerminal.isReady) return
 
-  return (
-    <div
-      ref={core.containerRef}
-      className="terminal-container"
-      role="terminal"
-      aria-label="Social Forge Terminal"
-      aria-description="Interactive command-line interface for Social Forge"
-      style={{
-        width: '100%',
-        height: '100%',
-      }}
-    />
-  )
+    const content = initialContent || ''
+
+    // Only write if content has actually changed
+    if (content !== lastWrittenContent.current) {
+      // Check if content was replaced (doesn't start with previous content) or appended
+      const isReplacement = lastWrittenContent.current.length > 0 && !content.startsWith(lastWrittenContent.current)
+
+      if (isReplacement) {
+        // Content was completely replaced - clear and write all
+        if (customTerminal.terminalRef.current) {
+          customTerminal.terminalRef.current.clear()
+          if (content) {
+            customTerminal.write(content)
+          }
+        }
+      } else {
+        // Content was appended (or initial content) - just write the new part
+        const newContent = content.slice(lastWrittenContent.current.length)
+        if (newContent) {
+          customTerminal.write(newContent)
+        }
+      }
+
+      lastWrittenContent.current = content
+
+      // Show the prompt after writing content
+      if (customTerminal.terminalRef.current) {
+        customTerminal.terminalRef.current.replaceInputLine('> |')
+      }
+
+      // Clear the needsPrompt flag if it was set
+      needsPrompt.current = false
+    }
+  }, [initialContent, customTerminal])
+
+  return customTerminal.renderTerminal()
 }
 
 // Export wrapped with error boundary

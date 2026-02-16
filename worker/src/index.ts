@@ -2,7 +2,6 @@
 // Social Forge Platform - Hono API
 
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
 import { HonoEnv } from './lib/types'
 import { errorHandler } from './middleware/error-handler'
 import { analyticsLogger } from './middleware/analytics'
@@ -17,15 +16,30 @@ import mediaRoutes from './routes/media'
 
 const app = new Hono<HonoEnv>()
 
-// Middleware - CORS with credentials support (same-origin via /api/* route)
-app.use('*', cors({
-  origin: 'https://rpg.apogeeforge.com',
-  credentials: true,
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-  exposeHeaders: ['Content-Length', 'X-Request-Id'],
-  maxAge: 600,
-}))
+// Middleware - CORS with credentials support
+app.use('*', async (c, next) => {
+  const isDevelopment = c.env.ENVIRONMENT !== 'production'
+
+  if (isDevelopment) {
+    // Development: Allow all origins
+    c.header('Access-Control-Allow-Origin', '*')
+  } else {
+    // Production: Only allow specific domain
+    const origin = c.req.header('Origin')
+    if (origin === 'https://rpg.apogeeforge.com') {
+      c.header('Access-Control-Allow-Origin', origin)
+    }
+  }
+
+  c.header('Access-Control-Allow-Credentials', 'true')
+  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
+  c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  c.header('Access-Control-Expose-Headers', 'Content-Length, X-Request-Id')
+  c.header('Access-Control-Max-Age', '600')
+  c.header('Vary', 'Origin')
+
+  await next()
+})
 app.use('*', analyticsLogger)
 
 // Routes
@@ -51,11 +65,14 @@ export default {
   async fetch(request: Request, env: HonoEnv['Bindings'], ctx: ExecutionContext) {
     // Handle OPTIONS preflight requests
     if (request.method === 'OPTIONS') {
+      const isDevelopment = env.ENVIRONMENT !== 'production'
+      const origin = request.headers.get('Origin') || '*'
+
       return new Response(null, {
         status: 204,
         headers: {
-          'Access-Control-Allow-Origin': 'https://rpg.apogeeforge.com',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Origin': isDevelopment ? '*' : (origin === 'https://rpg.apogeeforge.com' ? origin : ''),
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization',
           'Access-Control-Allow-Credentials': 'true',
           'Access-Control-Max-Age': '600',

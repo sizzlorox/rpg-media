@@ -63,7 +63,7 @@ media.post('/upload-url', authMiddleware, async (c) => {
     // In production, you'd generate a presigned URL with proper authentication
     // For now, we'll return the key and handle upload via a separate endpoint
     const uploadUrl = `/api/media/upload/${encodeURIComponent(key)}`
-    const publicUrl = `${c.env.PUBLIC_URL || 'http://localhost:8787'}/media/${key}`
+    const publicUrl = `${c.env.PUBLIC_URL || 'http://localhost:8787'}/api/media/${key}`
 
     return c.json({
       upload_url: uploadUrl,
@@ -125,7 +125,7 @@ media.put('/upload/:key', authMiddleware, async (c) => {
       },
     })
 
-    const publicUrl = `${c.env.PUBLIC_URL || 'http://localhost:8787'}/media/${key}`
+    const publicUrl = `${c.env.PUBLIC_URL || 'http://localhost:8787'}/api/media/${key}`
 
     return c.json({
       success: true,

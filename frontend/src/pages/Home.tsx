@@ -9,7 +9,13 @@ export function HomePage() {
 
   return (
     <div className="home-page">
-      <Terminal onCommand={handleCommand} initialContent={terminalOutput} skipWelcome={true} />
+      <div className="terminal-wrapper">
+        <Terminal
+          onCommand={handleCommand}
+          initialContent={terminalOutput}
+          skipWelcome={true}
+        />
+      </div>
     </div>
   )
 }

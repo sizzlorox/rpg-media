@@ -13,6 +13,9 @@ interface UseTerminalCommandsOptions {
   onRegister?: (username: string, password: string) => Promise<void>
   onLogin?: (username: string, password: string) => Promise<void>
   onPost?: (content: string) => Promise<void>
+  onPostWithAttachment?: (content: string) => Promise<void>
+  onUploadAvatar?: () => Promise<void>
+  onUploadBanner?: () => Promise<void>
   onFeed?: (subcommand?: string) => Promise<void>
   onProfile?: (username?: string) => Promise<void>
   onLike?: (postId: string) => Promise<void>
@@ -65,17 +68,33 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
       name: '/post',
       handler: async (args) => {
         if (args.length === 0) {
-          return 'Usage: /post <content>'
+          return 'Usage: /post <content> [--attach]'
         }
-        const content = args.join(' ')
-        if (options.onPost) {
-          await options.onPost(content)
-          return '' // Callback handles output
+
+        // Check for --attach flag
+        const hasAttach = args.includes('--attach')
+        const content = args.filter(a => a !== '--attach').join(' ')
+
+        if (!content.trim()) {
+          return 'Usage: /post <content> [--attach]'
         }
-        return '✓ Post created! +10 XP'
+
+        if (hasAttach) {
+          if (options.onPostWithAttachment) {
+            await options.onPostWithAttachment(content)
+            return '' // Callback handles output
+          }
+          return '✗ Image uploads not configured'
+        } else {
+          if (options.onPost) {
+            await options.onPost(content)
+            return '' // Callback handles output
+          }
+          return '✓ Post created! +10 XP'
+        }
       },
-      description: 'Create a new post',
-      usage: '/post <content>',
+      description: 'Create a new post (optionally attach image with --attach)',
+      usage: '/post <content> [--attach]',
     },
     {
       name: '/feed',
@@ -216,6 +235,30 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
       },
       description: 'View feature unlock roadmap',
       usage: '/unlocks',
+    },
+    {
+      name: '/avatar',
+      handler: async () => {
+        if (options.onUploadAvatar) {
+          await options.onUploadAvatar()
+          return '' // Callback handles output
+        }
+        return '✗ Avatar upload not configured'
+      },
+      description: 'Upload profile avatar (level 7+)',
+      usage: '/avatar',
+    },
+    {
+      name: '/banner',
+      handler: async () => {
+        if (options.onUploadBanner) {
+          await options.onUploadBanner()
+          return '' // Callback handles output
+        }
+        return '✗ Banner upload not configured'
+      },
+      description: 'Upload profile banner (level 7+)',
+      usage: '/banner',
     },
     {
       name: '/help',

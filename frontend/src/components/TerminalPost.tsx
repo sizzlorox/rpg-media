@@ -47,6 +47,12 @@ export function renderTerminalPost(
   lines.push(post.content)
   lines.push('')
 
+  // Image (if media_url exists) - use markdown format for custom terminal renderer
+  if (post.media_url) {
+    lines.push(`![Post image](${post.media_url})`)
+    lines.push('')
+  }
+
   // Engagement
   lines.push(cyan(`❤ ${post.like_count} likes  💬 ${post.comment_count} comments`))
 

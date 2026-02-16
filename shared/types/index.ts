@@ -150,6 +150,26 @@ export interface CreateCommentResponse {
   level_up: boolean
 }
 
+export interface MediaUploadUrlResponse {
+  upload_url: string
+  public_url: string
+  key: string
+  expires_in: number
+}
+
+export interface MediaUploadResponse {
+  success: boolean
+  public_url: string
+  key: string
+}
+
+export interface UpdateProfileRequest {
+  avatar_url?: string
+  banner_url?: string
+  bio?: string
+  theme_preference?: string
+}
+
 export interface FeedResponse {
   posts: PostWithAuthor[]
   has_more: boolean

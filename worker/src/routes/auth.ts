@@ -39,10 +39,12 @@ auth.post('/register', async (c) => {
 
     return c.json(userProfile, 201)
   } catch (error) {
-    if ((error as Error).message.includes('already exists')) {
-      return c.json({ error: 'Conflict', message: (error as Error).message }, 409)
+    console.error('Registration error:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (errorMessage.includes('already exists')) {
+      return c.json({ error: 'Conflict', message: errorMessage }, 409)
     }
-    return c.json({ error: 'BadRequest', message: (error as Error).message }, 400)
+    return c.json({ error: 'BadRequest', message: errorMessage }, 400)
   }
 })
 

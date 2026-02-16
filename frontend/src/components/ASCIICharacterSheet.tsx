@@ -3,6 +3,7 @@
 import { green, cyan, yellow, magenta } from '../utils/ansi-colors'
 import { renderTerminalXPBar } from './TerminalXPBar'
 import { getResponsiveBoxWidth, centerInBox } from '../utils/responsive-width'
+import { renderImageFrame } from '../utils/upload-ui'
 import type { UserProfile } from '../../../shared/types'
 
 interface ASCIICharacterSheetProps {
@@ -41,8 +42,42 @@ export function renderASCIICharacterSheet(
   // Empty line
   lines.push(green('║') + ' '.repeat(width) + green('║'))
 
+  // Banner (if exists)
+  if (profile.banner_url) {
+    const bannerFrame = renderImageFrame(profile.banner_url, 'Profile banner', terminalCols)
+    const bannerLines = bannerFrame.split('\r\n')
+    bannerLines.forEach(line => {
+      const lineLength = line.replace(/\x1b\[[0-9;]*m/g, '').length
+      lines.push(
+        green('║') +
+        ' '.repeat(2) +
+        line +
+        ' '.repeat(Math.max(0, width - lineLength - 2)) +
+        green('║')
+      )
+    })
+    lines.push(green('║') + ' '.repeat(width) + green('║'))
+  }
+
   // Separator
   lines.push(green('╠' + border + '╣'))
+
+  // Avatar (if exists)
+  if (profile.avatar_url) {
+    const avatarFrame = renderImageFrame(profile.avatar_url, 'Avatar', terminalCols)
+    const avatarLines = avatarFrame.split('\r\n')
+    avatarLines.forEach(line => {
+      const lineLength = line.replace(/\x1b\[[0-9;]*m/g, '').length
+      lines.push(
+        green('║') +
+        ' '.repeat(2) +
+        line +
+        ' '.repeat(Math.max(0, width - lineLength - 2)) +
+        green('║')
+      )
+    })
+    lines.push(green('║') + ' '.repeat(width) + green('║'))
+  }
 
   // Character Name
   const nameLabel = '  Name: '
