@@ -79,12 +79,13 @@ export function getResponsiveConfig(width: number): ResponsiveBreakpoint {
     safeAreaInsets = leftInset + rightInset
   }
 
-  // Character width is approximately 0.55em for IBM Plex Mono
-  // (more accurate than 0.6 for smaller font sizes)
-  const charWidth = config.fontSize * 0.55
+  // Character width for IBM Plex Mono with safety margin
+  // Using 0.6 to be conservative and prevent wrapping
+  const charWidth = config.fontSize * 0.6
 
   // Calculate how many characters actually fit
-  const availableWidth = width - totalPadding - safeAreaInsets
+  // Subtract additional margin to prevent edge wrapping
+  const availableWidth = width - totalPadding - safeAreaInsets - 4 // 4px safety margin
   const calculatedCols = Math.floor(availableWidth / charWidth)
 
   // Use calculated columns, but respect the minCols as an absolute minimum
