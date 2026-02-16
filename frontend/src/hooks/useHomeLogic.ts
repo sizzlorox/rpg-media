@@ -55,8 +55,9 @@ interface FollowResponse {
   level_up: boolean
 }
 
-// Module-level flag to prevent React Strict Mode from clearing feed on remount
+// Module-level flags to prevent React Strict Mode from clearing feed on remount
 let hasShownWelcomeMessage = false
+let lastPostsCount = 0
 
 export function useHomeLogic() {
   const { user, isAuthenticated, login, register } = useAuth()
@@ -401,7 +402,8 @@ export function useHomeLogic() {
       isAuthenticated,
       hasUser: !!user,
       postsLength: posts.length,
-      hasXpProgress: !!xpProgress
+      hasXpProgress: !!xpProgress,
+      lastPostsCount
     })
 
     if (isRefreshingRef.current) {
@@ -409,8 +411,14 @@ export function useHomeLogic() {
       return
     }
 
-    // Only skip if we've shown welcome WITH posts already
-    if (hasShownWelcomeMessage) return
+    // Check if posts just arrived (went from 0 to > 0)
+    const postsJustArrived = lastPostsCount === 0 && posts.length > 0
+
+    // Only skip if we've shown welcome AND posts haven't just arrived
+    if (hasShownWelcomeMessage && !postsJustArrived) {
+      console.log('[useHomeLogic] Skipping - already shown and posts not newly arrived')
+      return
+    }
 
     const cols = terminal.terminalCols.current || 80
     const responsiveConfig = getResponsiveConfig(getCurrentViewportWidth())
@@ -433,8 +441,9 @@ export function useHomeLogic() {
         : welcome
 
       terminal.setContent(content)
-      // Mark as shown immediately to prevent re-renders
+      // Mark as shown and update posts count
       hasShownWelcomeMessage = true
+      lastPostsCount = posts.length
     } else if (!isAuthenticated) {
       console.log('[useHomeLogic] Showing unauthenticated welcome, postsLength:', posts.length)
       const welcome = [
@@ -449,8 +458,9 @@ export function useHomeLogic() {
         : welcome
 
       terminal.setContent(content)
-      // Mark as shown immediately to prevent re-renders
+      // Mark as shown and update posts count
       hasShownWelcomeMessage = true
+      lastPostsCount = posts.length
     } else {
       console.warn('[useHomeLogic] NOT showing welcome - conditions not met', {
         isAuthenticated,
