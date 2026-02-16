@@ -4,6 +4,8 @@ Auto-generated from all feature plans. Last updated: 2026-02-13
 
 ## Active Technologies
 - Cloudflare D1 (SQLite-based distributed database), Cloudflare R2 (image storage for level 3+ users) (001-rpg-social-media)
+- TypeScript 5.x with React 19.2.0 + None (removing xterm.js); build from scratch using native DOM + Reac (001-custom-terminal-emulator)
+- Browser localStorage for command history persistence; no backend storage changes (001-custom-terminal-emulator)
 
 - TypeScript 5.x with strict mode enabled + Hono 4.x (web framework), Cloudflare D1 (SQLite database), Wrangler CLI 3.x (deployment) (001-rpg-social-media)
 
@@ -47,6 +49,7 @@ tests/             # Integration tests
 TypeScript 5.x with strict mode enabled: Follow standard conventions
 
 ## Recent Changes
+- 001-custom-terminal-emulator: Added TypeScript 5.x with React 19.2.0 + None (removing xterm.js); build from scratch using native DOM + Reac
 - 001-rpg-social-media: Added TypeScript 5.x with strict mode enabled
 
 - 001-rpg-social-media: Added TypeScript 5.x with strict mode enabled + Hono 4.x (web framework), Cloudflare D1 (SQLite database), Wrangler CLI 3.x (deployment)

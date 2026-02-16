@@ -26,6 +26,14 @@ export interface FrameLayout {
 }
 
 /**
+ * Content to render inside a frame
+ */
+export interface FrameContent {
+  lines: string[]              // Array of text lines to render inside frame
+  title?: string               // Optional title to display in top border
+}
+
+/**
  * Predefined border styles
  */
 export const BOX_DRAWING_DOUBLE: FrameBorderStyle = {

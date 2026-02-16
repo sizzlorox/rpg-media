@@ -25,6 +25,20 @@ export const TerminalRenderer: React.FC<TerminalRendererProps> = memo(({
   onImageLoadStart,
   onImageLoadComplete
 }) => {
+  // Debug: Check for duplicate line numbers
+  const lineNumbers = lines.map(l => l.metadata.lineNumber)
+  const uniqueLineNumbers = new Set(lineNumbers)
+
+  console.log('[TerminalRenderer] Rendering', lines.length, 'lines, line numbers:', lineNumbers.slice(0, 10), '...')
+
+  if (uniqueLineNumbers.size !== lines.length) {
+    console.error('[TerminalRenderer] DUPLICATE LINE NUMBERS DETECTED!', {
+      totalLines: lines.length,
+      uniqueLines: uniqueLineNumbers.size,
+      lineNumbers: lineNumbers
+    })
+  }
+
   return (
     <div className="terminal-lines">
       {lines.map((line, _index) => (

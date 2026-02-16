@@ -2,6 +2,7 @@
 
 export interface TerminalConfig {
   fontSize: number
+  lineHeight: number
   minRows: number
   minCols: number
   padding: string
@@ -9,6 +10,7 @@ export interface TerminalConfig {
 }
 
 export interface ResponsiveBreakpoint {
+  breakpoint: 'mobile' | 'tablet' | 'desktop'
   maxWidth: number
   config: TerminalConfig
   logoType: 'compact' | 'medium' | 'full'
@@ -16,9 +18,11 @@ export interface ResponsiveBreakpoint {
 
 export const RESPONSIVE_BREAKPOINTS: ResponsiveBreakpoint[] = [
   {
+    breakpoint: 'mobile',
     maxWidth: 640, // Mobile
     config: {
       fontSize: 10,
+      lineHeight: 14,  // 1.4x fontSize
       minRows: 24,
       minCols: 40,
       padding: '8px',
@@ -27,9 +31,11 @@ export const RESPONSIVE_BREAKPOINTS: ResponsiveBreakpoint[] = [
     logoType: 'compact'
   },
   {
+    breakpoint: 'tablet',
     maxWidth: 1024, // Tablet
     config: {
       fontSize: 12,
+      lineHeight: 16.8,  // 1.4x fontSize
       minRows: 28,
       minCols: 60,
       padding: '12px',
@@ -38,9 +44,11 @@ export const RESPONSIVE_BREAKPOINTS: ResponsiveBreakpoint[] = [
     logoType: 'medium'
   },
   {
+    breakpoint: 'desktop',
     maxWidth: Infinity, // Desktop
     config: {
       fontSize: 14,
+      lineHeight: 19.6,  // 1.4x fontSize
       minRows: 30,
       minCols: 80,
       padding: '20px',

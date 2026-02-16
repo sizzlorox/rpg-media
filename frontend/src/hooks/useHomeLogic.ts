@@ -55,6 +55,9 @@ interface FollowResponse {
   level_up: boolean
 }
 
+// Module-level flag to prevent React Strict Mode from clearing feed on remount
+let hasShownWelcomeMessage = false
+
 export function useHomeLogic() {
   const { user, isAuthenticated, login, register } = useAuth()
   const { posts, loadDiscoveryFeed, loadHomeFeed } = useFeed()
@@ -62,12 +65,10 @@ export function useHomeLogic() {
   const { pagination, loadComments, lastViewedPostId } = useComments()
   const terminal = useTerminal()
 
-  const hasShownInitialWelcome = useRef(false)
   const isRefreshingRef = useRef(false)
 
   // Data fetching logic - consolidated into one effect
   useEffect(() => {
-    hasShownInitialWelcome.current = false
     if (isAuthenticated) {
       loadHomeFeed()
       loadXPProgress()
@@ -394,40 +395,73 @@ export function useHomeLogic() {
 
   // Refined welcome message logic with ASCII art
   useEffect(() => {
+    console.log('[useHomeLogic] showInitialWelcome useEffect triggered', {
+      isRefreshing: isRefreshingRef.current,
+      hasShownWelcome: hasShownWelcomeMessage,
+      isAuthenticated,
+      hasUser: !!user,
+      postsLength: posts.length,
+      hasXpProgress: !!xpProgress
+    })
+
     if (isRefreshingRef.current) {
       isRefreshingRef.current = false
       return
     }
 
-    if (hasShownInitialWelcome.current) return
+    // Only skip if we've shown welcome WITH posts already
+    if (hasShownWelcomeMessage) return
 
     const cols = terminal.terminalCols.current || 80
     const responsiveConfig = getResponsiveConfig(getCurrentViewportWidth())
     const asciiWelcome = renderWelcomeMessage(cols, responsiveConfig.logoType)
 
-    if (isAuthenticated && user && posts.length > 0 && xpProgress) {
+    if (isAuthenticated && user && xpProgress) {
+      console.log('[useHomeLogic] Showing authenticated welcome, postsLength:', posts.length)
       const xpBar = renderTerminalXPBar(xpProgress.current_level, xpProgress.total_xp, xpProgress.xp_for_next_level, xpProgress.progress_percent, cols)
       const welcome = [
         asciiWelcome,
         '',
         xpBar,
         '',
-        yellow(`Showing ${posts.length} posts:`),
+        posts.length > 0 ? yellow(`Showing ${posts.length} posts:`) : cyan('Loading feed...'),
         '',
       ].join('\r\n')
 
-      terminal.setContent(welcome + posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') + '\r\n')
-      hasShownInitialWelcome.current = true
-    } else if (!isAuthenticated && posts.length > 0) {
+      const content = posts.length > 0
+        ? welcome + posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') + '\r\n'
+        : welcome
+
+      terminal.setContent(content)
+      // Only mark as shown if we have posts
+      if (posts.length > 0) {
+        hasShownWelcomeMessage = true
+      }
+    } else if (!isAuthenticated) {
+      console.log('[useHomeLogic] Showing unauthenticated welcome, postsLength:', posts.length)
       const welcome = [
         asciiWelcome,
         '',
-        yellow(`Showing ${posts.length} popular posts:`),
+        posts.length > 0 ? yellow(`Showing ${posts.length} popular posts:`) : cyan('Loading popular posts...'),
         '',
       ].join('\r\n')
 
-      terminal.setContent(welcome + posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') + '\r\n')
-      hasShownInitialWelcome.current = true
+      const content = posts.length > 0
+        ? welcome + posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') + '\r\n'
+        : welcome
+
+      terminal.setContent(content)
+      // Only mark as shown if we have posts
+      if (posts.length > 0) {
+        hasShownWelcomeMessage = true
+      }
+    } else {
+      console.warn('[useHomeLogic] NOT showing welcome - conditions not met', {
+        isAuthenticated,
+        hasUser: !!user,
+        postsLength: posts.length,
+        hasXpProgress: !!xpProgress
+      })
     }
   }, [isAuthenticated, user, posts, xpProgress, terminal])
 

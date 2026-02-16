@@ -46,13 +46,16 @@ class CustomTerminalAPI {
   }
 
   write(text: string) {
-    console.log('[CustomTerminalAPI] write() called with:', text.substring(0, 50))
+    console.log('[CustomTerminalAPI] write() called with text length:', text.length, 'preview:', text.substring(0, 100))
+    console.log('[CustomTerminalAPI] Current buffer state - total lines:', this.scrollBuffer.getTotalLines())
 
     // Parse image markers
     const { text: cleanText, images } = parseImageMarkers(text)
+    console.log('[CustomTerminalAPI] Parsed', images.length, 'images')
 
     // Parse ANSI codes
     const cells = this.ansiParser.parse(cleanText)
+    console.log('[CustomTerminalAPI] Parsed', cells.length, 'cells')
 
     // Check if this is a content block (has newlines) or interactive input
     const hasNewline = cells.some(cell => cell.char === '\n' || cell.char === '\r')
@@ -309,8 +312,10 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
 
   // Initialize terminal API
   useEffect(() => {
+    console.log('[CustomTerminal] Initialization useEffect running, terminalRef.current:', terminalRef.current)
     if (terminalRef.current) return
 
+    console.log('[CustomTerminal] Creating new CustomTerminalAPI')
     const api = new CustomTerminalAPI(
       scrollBuffer,
       ansiParser,
@@ -324,6 +329,7 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
 
     terminalRef.current = api
     setIsReady(true)
+    console.log('[CustomTerminal] Terminal API ready, isReady=true')
 
     // Auto-focus the terminal
     setTimeout(() => {
@@ -331,6 +337,7 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
     }, 100)
 
     if (onReady) {
+      console.log('[CustomTerminal] Calling onReady callback')
       onReady(api)
     }
 
@@ -463,6 +470,15 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
   const calculateStartLine = useCallback(() => {
     const totalLinesCount = scrollBuffer.getTotalLines()
     const oldestLineNum = scrollBuffer.getOldestLineNumber()
+
+    console.log('[calculateStartLine] totalLinesCount:', totalLinesCount, 'oldestLineNum:', oldestLineNum, 'scrollY:', viewport.scrollY)
+
+    // If no lines, return 0
+    if (totalLinesCount === 0) {
+      console.warn('[calculateStartLine] No lines in buffer, returning 0')
+      return 0
+    }
+
     let accumulatedHeight = 0
 
     for (let i = 0; i < totalLinesCount; i++) {
@@ -470,13 +486,16 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
       const height = lineHeights.get(lineNumber) || viewport.lineHeight
 
       if (accumulatedHeight + height > viewport.scrollY) {
+        console.log('[calculateStartLine] Found startLine:', lineNumber, 'at accumulatedHeight:', accumulatedHeight)
         return lineNumber
       }
 
       accumulatedHeight += height
     }
 
-    return oldestLineNum + totalLinesCount - 1
+    const result = oldestLineNum + totalLinesCount - 1
+    console.log('[calculateStartLine] Reached end, returning:', result)
+    return result
   }, [viewport.scrollY, lineHeights, scrollBuffer, viewport.lineHeight])
 
   // Calculate endLine by continuing to accumulate until viewport is filled
@@ -528,6 +547,7 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
       position += lineHeights.get(lineNumber) || viewport.lineHeight
     }
 
+    console.log('[topPosition] Calculated:', position, 'for startLine:', startLine, 'oldestLineNum:', oldestLineNum)
     return position
   }, [startLine, lineHeights, scrollBuffer, viewport.lineHeight])
 
@@ -543,8 +563,21 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
     visibleLinesCount: visibleLines.length,
     totalLines,
     oldestLine,
-    totalHeight: totalContentHeight
+    totalHeight: totalContentHeight,
+    topPosition,
+    isReady,
+    hasContainer: !!containerRef.current
   })
+
+  // Debug: Log if no visible lines
+  if (visibleLines.length === 0) {
+    console.warn('[useCustomTerminal] WARNING: No visible lines to render!', {
+      totalLines,
+      startLine,
+      endLine,
+      bufferRevision
+    })
+  }
 
   // Fit function (no-op for custom terminal)
   const fit = useCallback(() => {
@@ -564,27 +597,29 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
   }, [])
 
   // Render component
-  const renderTerminal = () => (
-    <div
-      ref={containerRef}
-      className="custom-terminal-wrapper"
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'auto',
-        backgroundColor: '#000000',
-        color: '#00ff00',
-        fontFamily: 'IBM Plex Mono, Courier New, monospace',
-        fontSize: `${responsiveConfig.config.fontSize}px`,
-        lineHeight: `${viewport.lineHeight}px`,
-        padding: '10px',
-        outline: 'none',
-        cursor: 'text'
-      }}
-      tabIndex={0}
-      onScroll={handleScroll}
-      onClick={() => containerRef.current?.focus()}
-    >
+  const renderTerminal = () => {
+    console.log('[renderTerminal] Rendering terminal, visibleLines:', visibleLines.length, 'totalContentHeight:', totalContentHeight)
+    return (
+      <div
+        ref={containerRef}
+        className="custom-terminal-wrapper"
+        style={{
+          width: '100%',
+          height: '100%',
+          overflow: 'auto',
+          backgroundColor: '#000000',
+          color: '#00ff00',
+          fontFamily: 'IBM Plex Mono, Courier New, monospace',
+          fontSize: `${responsiveConfig.config.fontSize}px`,
+          lineHeight: `${viewport.lineHeight}px`,
+          padding: '10px',
+          outline: 'none',
+          cursor: 'text'
+        }}
+        tabIndex={0}
+        onScroll={handleScroll}
+        onClick={() => containerRef.current?.focus()}
+      >
       <div
         ref={rendererContainerRef}
         style={{
@@ -611,7 +646,8 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
         </div>
       </div>
     </div>
-  )
+    )
+  }
 
   return {
     terminalRef,
