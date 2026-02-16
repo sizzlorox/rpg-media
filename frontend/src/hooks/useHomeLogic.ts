@@ -71,20 +71,25 @@ export function useHomeLogic() {
     typeof window !== 'undefined' ? window.innerWidth : 1024
   )
 
+  // Calculate terminal columns - same logic used on both initial render and resize
+  const calculateTerminalCols = useCallback(() => {
+    const responsiveConfig = getResponsiveConfig(getCurrentViewportWidth())
+    return responsiveConfig.config.minCols
+  }, [])
+
   // Listen for window resize to update terminal width
   useEffect(() => {
     const handleResize = () => {
-      const newWidth = window.innerWidth
-      setWindowWidth(newWidth)
+      setWindowWidth(window.innerWidth)
 
-      // Update terminal columns ref immediately on resize
-      const responsiveConfig = getResponsiveConfig(newWidth)
-      terminal.updateCols(responsiveConfig.config.minCols)
+      // Update terminal columns ref using the same calculation as initial render
+      const cols = calculateTerminalCols()
+      terminal.updateCols(cols)
     }
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [terminal])
+  }, [terminal, calculateTerminalCols])
 
   // Data fetching logic - consolidated into one effect
   useEffect(() => {
@@ -431,8 +436,9 @@ export function useHomeLogic() {
       return
     }
 
+    // Use the same calculation function for consistency
+    const cols = terminal.terminalCols.current || calculateTerminalCols()
     const responsiveConfig = getResponsiveConfig(getCurrentViewportWidth())
-    const cols = terminal.terminalCols.current || responsiveConfig.config.minCols
     const asciiWelcome = renderWelcomeMessage(cols, responsiveConfig.logoType)
 
     if (isAuthenticated && user) {
@@ -475,7 +481,7 @@ export function useHomeLogic() {
       hasShownWelcomeMessage = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user, posts, xpProgress, windowWidth])
+  }, [isAuthenticated, user, posts, xpProgress, windowWidth, calculateTerminalCols])
 
   const handleCommand = useCallback(
     async (command: string, terminalCols: number = 80) => {
