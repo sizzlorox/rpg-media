@@ -44,8 +44,8 @@ export function parseImageMarkers(text: string): ParseResult {
     })
   }
 
-  // Remove custom image markers from text
-  cleanText = cleanText.replace(customRegex, '')
+  // Replace custom image markers with [Image] placeholder
+  cleanText = cleanText.replace(customRegex, '[Image]')
 
   // Match markdown image syntax: ![alt](url)
   const markdownRegex = /!\[([^\]]*)\]\(([^\)]+)\)/g
@@ -57,8 +57,8 @@ export function parseImageMarkers(text: string): ParseResult {
     })
   }
 
-  // Remove markdown image markers from text
-  cleanText = cleanText.replace(markdownRegex, '')
+  // Replace markdown image markers with [Image] placeholder
+  cleanText = cleanText.replace(markdownRegex, '[Image]')
 
   return { text: cleanText, images }
 }

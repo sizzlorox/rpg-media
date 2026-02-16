@@ -46,21 +46,16 @@ class CustomTerminalAPI {
   }
 
   write(text: string) {
-    console.log('[CustomTerminalAPI] write() called with text length:', text.length, 'preview:', text.substring(0, 100))
-    console.log('[CustomTerminalAPI] Current buffer state - total lines:', this.scrollBuffer.getTotalLines())
 
     // Parse image markers
     const { text: cleanText, images } = parseImageMarkers(text)
-    console.log('[CustomTerminalAPI] Parsed', images.length, 'images')
 
     // Parse ANSI codes
     const cells = this.ansiParser.parse(cleanText)
-    console.log('[CustomTerminalAPI] Parsed', cells.length, 'cells')
 
     // Check if this is a content block (has newlines) or interactive input
     const hasNewline = cells.some(cell => cell.char === '\n' || cell.char === '\r')
 
-    console.log('[CustomTerminalAPI] hasNewline:', hasNewline, 'cells:', cells.length)
 
     if (hasNewline) {
       // CONTENT BLOCK MODE: Write complete lines with newlines
@@ -106,11 +101,9 @@ class CustomTerminalAPI {
       }
     } else {
       // INTERACTIVE INPUT MODE: Accumulate characters on current line
-      console.log('[CustomTerminalAPI] Interactive mode - currentLineCells:', this.currentLineCells.length)
 
       // Remove the incomplete line if it exists
       if (this.currentLineCells.length > 0) {
-        console.log('[CustomTerminalAPI] Popping last line')
         this.scrollBuffer.popLast()
       }
 
@@ -119,16 +112,13 @@ class CustomTerminalAPI {
         this.currentLineCells.push(cell)
       }
 
-      console.log('[CustomTerminalAPI] Updated currentLineCells:', this.currentLineCells.length)
 
       // Re-add the updated incomplete line
       const lineNumber = this.scrollBuffer.getTotalLines()
       const line = createDefaultLine(lineNumber, this.cols)
       line.cells = [...this.currentLineCells]
 
-      console.log('[CustomTerminalAPI] Appending line with', line.cells.length, 'cells')
       this.scrollBuffer.append(line)
-      console.log('[CustomTerminalAPI] Total lines now:', this.scrollBuffer.getTotalLines())
     }
 
     // Attach images to lines containing [Image] markers
@@ -295,11 +285,9 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
 
     // Store actual rendered height if provided
     if (height) {
-      console.log('[CustomTerminal] Image loaded:', url, 'height:', height)
       setActualImageHeights(prev => {
         const newMap = new Map(prev)
         newMap.set(url, height)
-        console.log('[CustomTerminal] Updated height map:', Array.from(newMap.entries()))
         return newMap
       })
     }
@@ -312,10 +300,8 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
 
   // Initialize terminal API
   useEffect(() => {
-    console.log('[CustomTerminal] Initialization useEffect running, terminalRef.current:', terminalRef.current)
     if (terminalRef.current) return
 
-    console.log('[CustomTerminal] Creating new CustomTerminalAPI')
     const api = new CustomTerminalAPI(
       scrollBuffer,
       ansiParser,
@@ -329,7 +315,6 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
 
     terminalRef.current = api
     setIsReady(true)
-    console.log('[CustomTerminal] Terminal API ready, isReady=true')
 
     // Auto-focus the terminal
     setTimeout(() => {
@@ -337,13 +322,13 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
     }, 100)
 
     if (onReady) {
-      console.log('[CustomTerminal] Calling onReady callback')
       onReady(api)
     }
+  }, [scrollBuffer, ansiParser, cols, rows, breakpoint, onReady, handleImageLoadStart, handleImageLoadComplete])
 
-    // Setup keyboard event handling
+  // Setup keyboard event handling (separate effect that always runs)
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      console.log('[CustomTerminal] Key pressed:', e.key)
 
       // Handle special keys
       let data = ''
@@ -392,21 +377,17 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
         data = e.key
       }
 
-      if (data && api) {
-        console.log('[CustomTerminal] Emitting data:', data)
-        api.emitData(data)
-      } else {
-        console.log('[CustomTerminal] No data to emit or no API')
+      if (data && terminalRef.current) {
+        terminalRef.current.emitData(data)
       }
     }
 
-    console.log('[CustomTerminal] Adding keyboard listener to:', containerRef.current)
     containerRef.current?.addEventListener('keydown', handleKeyDown)
 
     return () => {
       containerRef.current?.removeEventListener('keydown', handleKeyDown)
     }
-  }, [scrollBuffer, ansiParser, cols, rows, breakpoint, onReady, handleImageLoadStart, handleImageLoadComplete])
+  }, []) // Empty deps - only set up once and cleanup on unmount
 
   // Handle scroll with requestAnimationFrame batching for 60fps
   const scrollRAFRef = useRef<number | null>(null)
@@ -444,7 +425,6 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
     const totalLinesCount = scrollBuffer.getTotalLines()
     const oldestLineNum = scrollBuffer.getOldestLineNumber()
 
-    console.log('[CustomTerminal] Building height map, actualImageHeights:', Array.from(actualImageHeights.entries()))
 
     for (let i = 0; i < totalLinesCount; i++) {
       const lineNumber = oldestLineNum + i
@@ -456,7 +436,6 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
         const imageHeight = actualHeight || line.image.maxHeight
         const totalHeight = imageHeight + 20 // +20 for margin (10px top + 10px bottom)
         heights.set(lineNumber, totalHeight)
-        console.log(`[CustomTerminal] Line ${lineNumber} image: url=${line.image.url.substring(0, 30)}... actualHeight=${actualHeight} maxHeight=${line.image.maxHeight} totalHeight=${totalHeight}`)
       } else {
         // Text lines use standard lineHeight
         heights.set(lineNumber, viewport.lineHeight)
@@ -471,7 +450,6 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
     const totalLinesCount = scrollBuffer.getTotalLines()
     const oldestLineNum = scrollBuffer.getOldestLineNumber()
 
-    console.log('[calculateStartLine] totalLinesCount:', totalLinesCount, 'oldestLineNum:', oldestLineNum, 'scrollY:', viewport.scrollY)
 
     // If no lines, return 0
     if (totalLinesCount === 0) {
@@ -486,7 +464,6 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
       const height = lineHeights.get(lineNumber) || viewport.lineHeight
 
       if (accumulatedHeight + height > viewport.scrollY) {
-        console.log('[calculateStartLine] Found startLine:', lineNumber, 'at accumulatedHeight:', accumulatedHeight)
         return lineNumber
       }
 
@@ -494,7 +471,6 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
     }
 
     const result = oldestLineNum + totalLinesCount - 1
-    console.log('[calculateStartLine] Reached end, returning:', result)
     return result
   }, [viewport.scrollY, lineHeights, scrollBuffer, viewport.lineHeight])
 
@@ -547,37 +523,8 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
       position += lineHeights.get(lineNumber) || viewport.lineHeight
     }
 
-    console.log('[topPosition] Calculated:', position, 'for startLine:', startLine, 'oldestLineNum:', oldestLineNum)
     return position
   }, [startLine, lineHeights, scrollBuffer, viewport.lineHeight])
-
-  const totalLines = scrollBuffer.getTotalLines()
-  const oldestLine = scrollBuffer.getOldestLineNumber()
-
-  // Log for debugging
-  console.log('[useCustomTerminal] Render:', {
-    revision: bufferRevision,
-    scrollY: viewport.scrollY,
-    startLine,
-    endLine,
-    visibleLinesCount: visibleLines.length,
-    totalLines,
-    oldestLine,
-    totalHeight: totalContentHeight,
-    topPosition,
-    isReady,
-    hasContainer: !!containerRef.current
-  })
-
-  // Debug: Log if no visible lines
-  if (visibleLines.length === 0) {
-    console.warn('[useCustomTerminal] WARNING: No visible lines to render!', {
-      totalLines,
-      startLine,
-      endLine,
-      bufferRevision
-    })
-  }
 
   // Fit function (no-op for custom terminal)
   const fit = useCallback(() => {
@@ -598,7 +545,6 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
 
   // Render component
   const renderTerminal = () => {
-    console.log('[renderTerminal] Rendering terminal, visibleLines:', visibleLines.length, 'totalContentHeight:', totalContentHeight)
     return (
       <div
         ref={containerRef}

@@ -404,19 +404,13 @@ export function useHomeLogic() {
     // Check if posts just arrived (went from 0 to > 0)
     const postsJustArrived = lastPostsCount === 0 && posts.length > 0
 
-    // DEBUG: Log posts loading status
-    console.log('[POSTS DEBUG] useEffect trigger:', {
-      postsLength: posts.length,
-      lastPostsCount,
-      postsJustArrived,
-      hasShownWelcome: hasShownWelcomeMessage,
-      willRender: !hasShownWelcomeMessage || postsJustArrived,
-      posts: posts.map(p => ({ id: p.id.slice(0, 8), content: p.content.slice(0, 30) }))
-    })
+    // Update lastPostsCount IMMEDIATELY to survive React Strict Mode remounts
+    if (postsJustArrived) {
+      lastPostsCount = posts.length
+    }
 
     // Only skip if we've shown welcome AND posts haven't just arrived
     if (hasShownWelcomeMessage && !postsJustArrived) {
-      console.log('[POSTS DEBUG] Skipping render - already shown and no new posts')
       return
     }
 
@@ -424,26 +418,31 @@ export function useHomeLogic() {
     const responsiveConfig = getResponsiveConfig(getCurrentViewportWidth())
     const asciiWelcome = renderWelcomeMessage(cols, responsiveConfig.logoType)
 
-    if (isAuthenticated && user && xpProgress) {
-      const xpBar = renderTerminalXPBar(xpProgress.current_level, xpProgress.total_xp, xpProgress.xp_for_next_level, xpProgress.progress_percent, cols)
-      const welcome = [
-        asciiWelcome,
-        '',
-        xpBar,
-        '',
-        posts.length > 0 ? yellow(`Showing ${posts.length} posts:`) : cyan('Loading feed...'),
-        '',
-      ].join('\r\n')
+    if (isAuthenticated && user) {
+      // Authenticated users - show XP bar if available
+      const welcome = xpProgress
+        ? [
+            asciiWelcome,
+            '',
+            renderTerminalXPBar(xpProgress.current_level, xpProgress.total_xp, xpProgress.xp_for_next_level, xpProgress.progress_percent, cols),
+            '',
+            posts.length > 0 ? yellow(`Showing ${posts.length} posts:`) : cyan('Loading feed...'),
+            '',
+          ].join('\r\n')
+        : [
+            asciiWelcome,
+            '',
+            posts.length > 0 ? yellow(`Showing ${posts.length} posts:`) : cyan('Loading feed...'),
+            '',
+          ].join('\r\n')
 
       const content = posts.length > 0
         ? welcome + posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') + '\r\n'
         : welcome
 
-      console.log('[POSTS DEBUG] Authenticated - rendering content, length:', content.length, 'posts:', posts.length)
       terminal.setContent(content)
       hasShownWelcomeMessage = true
-      lastPostsCount = posts.length
-    } else if (!isAuthenticated) {
+    } else {
       const welcome = [
         asciiWelcome,
         '',
@@ -455,10 +454,8 @@ export function useHomeLogic() {
         ? welcome + posts.map((post) => renderTerminalPost(post, true, cols)).join('\r\n') + '\r\n'
         : welcome
 
-      console.log('[POSTS DEBUG] Unauthenticated - rendering content, length:', content.length, 'posts:', posts.length)
       terminal.setContent(content)
       hasShownWelcomeMessage = true
-      lastPostsCount = posts.length
     }
   }, [isAuthenticated, user, posts, xpProgress, terminal])
 
