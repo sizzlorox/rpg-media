@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from './useAuth'
 import { useFeed } from './useFeed'
 import { useCharacter } from './useCharacter'
