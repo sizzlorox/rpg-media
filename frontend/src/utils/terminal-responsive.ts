@@ -69,16 +69,41 @@ export function getResponsiveConfig(width: number): ResponsiveBreakpoint {
   const paddingValue = parseInt(config.padding) || 0
   const totalPadding = paddingValue * 2 // left + right
 
-  // Character width is approximately 0.6em for monospace fonts
-  const charWidth = config.fontSize * 0.6
+  // Get safe area insets (for iPhone notches, etc.)
+  let safeAreaInsets = 0
+  if (typeof window !== 'undefined' && typeof getComputedStyle !== 'undefined') {
+    const root = document.documentElement
+    const style = getComputedStyle(root)
+    const leftInset = parseInt(style.getPropertyValue('padding-left')) || 0
+    const rightInset = parseInt(style.getPropertyValue('padding-right')) || 0
+    safeAreaInsets = leftInset + rightInset
+  }
+
+  // Character width is approximately 0.55em for IBM Plex Mono
+  // (more accurate than 0.6 for smaller font sizes)
+  const charWidth = config.fontSize * 0.55
 
   // Calculate how many characters actually fit
-  const availableWidth = width - totalPadding
+  const availableWidth = width - totalPadding - safeAreaInsets
   const calculatedCols = Math.floor(availableWidth / charWidth)
 
   // Use calculated columns, but respect the minCols as an absolute minimum
   // and cap at 80 for desktop readability
-  config.minCols = Math.max(config.minCols, Math.min(calculatedCols, 80))
+  const finalCols = Math.max(config.minCols, Math.min(calculatedCols, 80))
+
+  console.log('[Terminal Responsive]', {
+    width,
+    breakpoint: breakpoint.breakpoint,
+    fontSize: config.fontSize,
+    padding: totalPadding,
+    safeAreaInsets,
+    charWidth,
+    availableWidth,
+    calculatedCols,
+    finalCols
+  })
+
+  config.minCols = finalCols
 
   return {
     ...breakpoint,
