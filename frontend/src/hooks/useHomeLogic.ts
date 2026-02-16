@@ -74,12 +74,17 @@ export function useHomeLogic() {
   // Listen for window resize to update terminal width
   useEffect(() => {
     const handleResize = () => {
-      setWindowWidth(window.innerWidth)
+      const newWidth = window.innerWidth
+      setWindowWidth(newWidth)
+
+      // Update terminal columns ref immediately on resize
+      const responsiveConfig = getResponsiveConfig(newWidth)
+      terminal.updateCols(responsiveConfig.config.minCols)
     }
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  }, [terminal])
 
   // Data fetching logic - consolidated into one effect
   useEffect(() => {
