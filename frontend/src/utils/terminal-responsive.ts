@@ -88,9 +88,13 @@ export function getResponsiveConfig(width: number): ResponsiveBreakpoint {
   const availableWidth = width - totalPadding - safeAreaInsets - 4 // 4px safety margin
   const calculatedCols = Math.floor(availableWidth / charWidth)
 
+  // Determine max columns based on breakpoint
+  // Mobile/Tablet: use calculated (no artificial cap)
+  // Desktop: cap at 120 for reasonable line length
+  const maxCols = breakpoint.breakpoint === 'desktop' ? 120 : calculatedCols
+
   // Use calculated columns, but respect the minCols as an absolute minimum
-  // and cap at 80 for desktop readability
-  const finalCols = Math.max(config.minCols, Math.min(calculatedCols, 80))
+  const finalCols = Math.max(config.minCols, Math.min(calculatedCols, maxCols))
 
   config.minCols = finalCols
 
