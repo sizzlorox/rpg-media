@@ -12,6 +12,7 @@ import { sanitizeError } from '../lib/error-sanitizer'
 import { rateLimiter } from '../middleware/rate-limit'
 import { XP_VALUES } from '../lib/constants'
 import { trackEvent } from '../lib/logger'
+import { ContentModerationService } from '../services/content-moderation'
 
 const interactions = new Hono<HonoEnv>()
 
@@ -157,14 +158,65 @@ interactions.post('/posts/:id/comments', authMiddleware, rateLimiter('comment'),
       return c.json({ error: 'NotFound', message: 'Post not found' }, 404)
     }
 
-    // Create comment (use full post ID from database result)
+    // Moderate content before creating comment
+    const moderationService = new ContentModerationService(c.env, db.raw())
+    const moderationResult = await moderationService.moderateText(content.trim())
+
+    // Auto-reject if flagged as illegal content
+    if (moderationResult.action === 'rejected') {
+      trackEvent('comment_rejected_moderation', {
+        userId,
+        postId,
+        categories: moderationResult.categories,
+        confidenceScores: moderationResult.confidenceScores,
+      })
+
+      return c.json({
+        error: 'ContentViolation',
+        message: 'Your comment contains content that violates our community guidelines.',
+        categories: moderationResult.categories,
+      }, 400)
+    }
+
+    // Create comment (may be hidden if flagged for review)
     const commentId = crypto.randomUUID()
+    const isHidden = moderationResult.action === 'flagged' ? 1 : 0
+
     const comment = await commentModel.create({
       id: commentId,
       user_id: userId,
       post_id: post.id,
       content: content.trim(),
+      is_hidden: isHidden,
     })
+
+    // If flagged, create moderation flag for admin review
+    if (moderationResult.action === 'flagged') {
+      const severity = moderationResult.categories.includes('violence/graphic') ? 'high'
+        : moderationResult.categories.includes('violence') ? 'medium'
+        : 'low'
+
+      await moderationService.createModerationFlag({
+        contentType: 'comment',
+        contentId: commentId,
+        userId,
+        flaggedReason: moderationResult.categories[0] || 'unknown',
+        severity,
+        evidenceData: {
+          categories: moderationResult.categories,
+          confidenceScores: moderationResult.confidenceScores,
+          content_preview: content.trim().slice(0, 100),
+        },
+      })
+
+      trackEvent('comment_flagged_moderation', {
+        userId,
+        postId,
+        commentId,
+        categories: moderationResult.categories,
+        severity,
+      })
+    }
 
     // Award XP in batch: +5 to commenter, +3 to post creator (if not same user)
     const xpAwards: { userId: string; amount: number; reason: string }[] = [

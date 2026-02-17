@@ -32,6 +32,7 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 [vars]
 ENVIRONMENT = "production"
 PUBLIC_URL = "https://rpg.apogeeforge.com"  # Required: Your production domain URL
+MODERATION_ENABLED = "true"  # Enable content moderation (set to "false" to disable)
 
 # Observability configuration
 [observability.logs]
@@ -41,6 +42,12 @@ invocation_logs = true
 # Secrets (set via: wrangler secret put <NAME>)
 # - JWT_SECRET (required) - Set with: wrangler secret put JWT_SECRET
 #   This is REQUIRED for authentication. Generate a strong secret with: openssl rand -base64 32
+#
+# - OPENAI_API_KEY (optional) - Set with: wrangler secret put OPENAI_API_KEY
+#   Required for text moderation. Get from: https://platform.openai.com/api-keys
+#
+# - GOOGLE_VISION_API_KEY (optional) - Set with: wrangler secret put GOOGLE_VISION_API_KEY
+#   Required for image moderation. Get from: https://console.cloud.google.com/apis/credentials
 
 # Production environment (uses same bindings as default)
 [env.production]
@@ -64,6 +71,7 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 
 [env.production.vars]
 ENVIRONMENT = "production"
+MODERATION_ENABLED = "true"
 
 [env.production.observability.logs]
 enabled = true

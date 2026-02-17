@@ -27,6 +27,7 @@ export interface Post {
   created_at: number
   updated_at: number
   is_pinned: number  // 0 or 1 (SQLite boolean)
+  is_hidden: number  // 0 or 1 (SQLite boolean) - hidden posts pending moderation
 }
 
 export interface Like {
@@ -43,6 +44,7 @@ export interface Comment {
   content: string
   created_at: number
   updated_at: number
+  is_hidden: number  // 0 or 1 (SQLite boolean) - hidden comments pending moderation
 }
 
 export interface Follow {
@@ -56,6 +58,30 @@ export interface LevelThreshold {
   level: number
   xp_required: number
   features_unlocked: string  // JSON array
+}
+
+export interface ModerationFlag {
+  id: string
+  content_type: 'post' | 'comment' | 'image'
+  content_id: string
+  user_id: string
+  flagged_reason: string  // 'violence' | 'adult' | 'csam_suspected' | 'hate' | 'self_harm'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  status: 'pending' | 'approved' | 'rejected'
+  reviewed_by: string | null
+  reviewed_at: number | null
+  evidence_data: string  // JSON: API response, hash, confidence scores
+  created_at: number
+}
+
+export interface ModerationCacheEntry {
+  hash: string
+  status: 'approved' | 'flagged' | 'rejected'
+  flagged_categories: string | null  // JSON array
+  confidence_scores: string | null   // JSON object
+  first_seen_at: number
+  last_seen_at: number
+  occurrence_count: number
 }
 
 // ==================== API Response Types ====================
@@ -192,6 +218,28 @@ export interface LevelThresholdsResponse {
     xp_required: number
     features_unlocked: string[]
   }[]
+}
+
+// ==================== Content Moderation ====================
+
+export interface ModerationResult {
+  action: 'approved' | 'flagged' | 'rejected'
+  categories: string[]              // e.g., ['violence', 'adult']
+  confidenceScores: Record<string, number>
+  reason?: string
+  perceptualHash?: string           // for images
+  cacheHit: boolean
+}
+
+export interface ModerationQueueResponse {
+  flags: ModerationFlag[]
+  pagination: {
+    page: number
+    limit: number
+    total_flags: number
+    total_pages: number
+    has_more: boolean
+  }
 }
 
 // ==================== Error Response ====================

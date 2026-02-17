@@ -16,6 +16,11 @@ export interface Env {
   SENTRY_DSN?: string
   ENVIRONMENT: string
   PUBLIC_URL: string
+
+  // Content moderation API keys
+  OPENAI_API_KEY?: string
+  GOOGLE_VISION_API_KEY?: string
+  MODERATION_ENABLED?: string  // "true" | "false"
 }
 
 // Extended Hono context with user from JWT

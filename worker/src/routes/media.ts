@@ -5,6 +5,9 @@ import { HonoEnv } from '../lib/types'
 import { authMiddleware } from '../middleware/auth'
 import { canAccessFeature } from '../lib/constants'
 import { sanitizeError } from '../lib/error-sanitizer'
+import { ContentModerationService } from '../services/content-moderation'
+import { createDatabaseClient } from '../lib/db'
+import { trackEvent } from '../lib/logger'
 
 const media = new Hono<HonoEnv>()
 
@@ -146,11 +149,73 @@ media.put('/upload/:key', authMiddleware, async (c) => {
       }, 400)
     }
 
-    // Upload to R2
+    // Moderate image content before uploading to R2
+    const db = createDatabaseClient(c.env)
+    const moderationService = new ContentModerationService(c.env, db.raw())
+    const moderationResult = await moderationService.moderateImage(fileData, key)
+
+    // Auto-reject if flagged as illegal content - DO NOT upload to R2
+    if (moderationResult.action === 'rejected') {
+      trackEvent('image_rejected_moderation', {
+        userId,
+        key,
+        categories: moderationResult.categories,
+        confidenceScores: moderationResult.confidenceScores,
+        perceptualHash: moderationResult.perceptualHash,
+      })
+
+      return c.json({
+        error: 'ContentViolation',
+        message: 'This image contains prohibited content and cannot be uploaded.',
+        categories: moderationResult.categories,
+      }, 400)
+    }
+
+    // Upload to R2 with moderation metadata
+    const customMetadata: Record<string, string> = {
+      uploaded_by: userId,
+      perceptual_hash: moderationResult.perceptualHash || '',
+      moderation_status: moderationResult.action,
+    }
+
+    // If flagged, mark for admin review
+    if (moderationResult.action === 'flagged') {
+      customMetadata.moderation_status = 'pending_review'
+      customMetadata.flagged_categories = JSON.stringify(moderationResult.categories)
+
+      // Create moderation flag for admin review
+      const severity = moderationResult.categories.includes('violence') ? 'high'
+        : moderationResult.categories.includes('adult') ? 'critical'
+        : 'medium'
+
+      await moderationService.createModerationFlag({
+        contentType: 'image',
+        contentId: key,
+        userId,
+        flaggedReason: moderationResult.categories[0] || 'unknown',
+        severity,
+        evidenceData: {
+          categories: moderationResult.categories,
+          confidenceScores: moderationResult.confidenceScores,
+          perceptualHash: moderationResult.perceptualHash,
+          key,
+        },
+      })
+
+      trackEvent('image_flagged_moderation', {
+        userId,
+        key,
+        categories: moderationResult.categories,
+        severity,
+        perceptualHash: moderationResult.perceptualHash,
+      })
+    }
+
     await bucket.put(key, fileData, {
       httpMetadata: {
         contentType: c.req.header('content-type') || 'application/octet-stream',
       },
+      customMetadata,
     })
 
     const publicUrl = `${c.env.PUBLIC_URL || 'http://localhost:8787'}/api/media/${key}`
@@ -159,6 +224,8 @@ media.put('/upload/:key', authMiddleware, async (c) => {
       success: true,
       public_url: publicUrl,
       key,
+      moderation_status: moderationResult.action,
+      cache_hit: moderationResult.cacheHit,
     })
   } catch (error) {
     const isDev = c.env.ENVIRONMENT !== 'production'

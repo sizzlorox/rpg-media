@@ -16,6 +16,7 @@ import interactionsRoutes from './routes/interactions'
 import xpRoutes from './routes/xp'
 import levelsRoutes from './routes/levels'
 import mediaRoutes from './routes/media'
+import adminRoutes from './routes/admin'
 
 const app = new Hono<HonoEnv>()
 
@@ -57,6 +58,7 @@ app.route('/api', interactionsRoutes)
 app.route('/api/xp', xpRoutes)
 app.route('/api/levels', levelsRoutes)
 app.route('/api/media', mediaRoutes)
+app.route('/api/admin', adminRoutes)
 
 // Health check endpoint with database verification
 app.get('/health', async (c) => {

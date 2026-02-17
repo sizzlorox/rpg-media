@@ -11,6 +11,7 @@ import { sanitizeError } from '../lib/error-sanitizer'
 import { CreatePostRequest } from '../../../shared/types'
 import { getCharacterLimit, canAccessFeature, XP_VALUES } from '../lib/constants'
 import { trackEvent } from '../lib/logger'
+import { ContentModerationService } from '../services/content-moderation'
 
 const posts = new Hono<HonoEnv>()
 
@@ -60,8 +61,29 @@ posts.post('/', authMiddleware, rateLimiter('post'), async (c) => {
     const postModel = new PostModel(db)
     const userModel = new UserModel(db)
 
-    // Create post
+    // Moderate content before creating post
+    const moderationService = new ContentModerationService(c.env, db.raw())
+    const moderationResult = await moderationService.moderateText(content.trim())
+
+    // Auto-reject if flagged as illegal content
+    if (moderationResult.action === 'rejected') {
+      trackEvent('post_rejected_moderation', {
+        userId,
+        categories: moderationResult.categories,
+        confidenceScores: moderationResult.confidenceScores,
+      })
+
+      return c.json({
+        error: 'ContentViolation',
+        message: 'Your post contains content that violates our community guidelines.',
+        categories: moderationResult.categories,
+      }, 400)
+    }
+
+    // Create post (may be hidden if flagged for review)
     const postId = crypto.randomUUID()
+    const isHidden = moderationResult.action === 'flagged' ? 1 : 0
+
     const post = await postModel.create({
       id: postId,
       user_id: userId,
@@ -69,7 +91,35 @@ posts.post('/', authMiddleware, rateLimiter('post'), async (c) => {
       char_count: content.trim().length,
       media_url: media_url || null,
       is_pinned: is_pinned ? 1 : 0,
+      is_hidden: isHidden,
     })
+
+    // If flagged, create moderation flag for admin review
+    if (moderationResult.action === 'flagged') {
+      const severity = moderationResult.categories.includes('violence/graphic') ? 'high'
+        : moderationResult.categories.includes('violence') ? 'medium'
+        : 'low'
+
+      await moderationService.createModerationFlag({
+        contentType: 'post',
+        contentId: postId,
+        userId,
+        flaggedReason: moderationResult.categories[0] || 'unknown',
+        severity,
+        evidenceData: {
+          categories: moderationResult.categories,
+          confidenceScores: moderationResult.confidenceScores,
+          content_preview: content.trim().slice(0, 100),
+        },
+      })
+
+      trackEvent('post_flagged_moderation', {
+        userId,
+        postId,
+        categories: moderationResult.categories,
+        severity,
+      })
+    }
 
     // Award XP using batch operation
     await db.batch([
