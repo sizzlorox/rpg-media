@@ -1,7 +1,7 @@
 // User model with D1 prepared statements
 
 import { DatabaseClient } from '../lib/db'
-import { User, UserProfile } from '../../../../shared/types'
+import { User, UserProfile } from '../../../shared/types'
 import { calculateLevel, xpForLevel, xpForNextLevel, xpProgressPercent } from '../lib/constants'
 
 export class UserModel {

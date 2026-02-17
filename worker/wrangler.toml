@@ -31,6 +31,7 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 # Environment variables (set via wrangler secret put or dashboard)
 [vars]
 ENVIRONMENT = "production"
+PUBLIC_URL = "https://rpg.apogeeforge.com"  # Required: Your production domain URL
 
 # Observability configuration
 [observability.logs]
@@ -38,7 +39,8 @@ enabled = true
 invocation_logs = true
 
 # Secrets (set via: wrangler secret put <NAME>)
-# - JWT_SECRET (required)
+# - JWT_SECRET (required) - Set with: wrangler secret put JWT_SECRET
+#   This is REQUIRED for authentication. Generate a strong secret with: openssl rand -base64 32
 
 # Production environment (uses same bindings as default)
 [env.production]

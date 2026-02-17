@@ -6,15 +6,16 @@ export interface Env {
   DB: D1Database
 
   // R2 storage for media uploads
-  R2_BUCKET: R2Bucket
+  MEDIA_BUCKET: R2Bucket
 
   // KV namespace for rate limiting
   RATE_LIMIT_KV: KVNamespace
 
   // Environment variables
   JWT_SECRET: string
-  SENTRY_DSN: string
+  SENTRY_DSN?: string
   ENVIRONMENT: string
+  PUBLIC_URL: string
 }
 
 // Extended Hono context with user from JWT
@@ -24,6 +25,8 @@ export interface HonoEnv {
     userId?: string
     username?: string
     level?: number
+    requestId?: string
+    parsedBody?: any
   }
 }
 

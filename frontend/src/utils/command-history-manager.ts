@@ -2,6 +2,8 @@
 // Feature: 001-custom-terminal-emulator
 // User Story 3: True Terminal Behavior and Input Handling
 
+import { useState, useCallback } from 'react'
+
 /**
  * Manages command history with circular buffer (session-only, not persisted)
  */
@@ -134,34 +136,11 @@ export class CommandHistoryManager {
   getMostRecent(): string | null {
     return this.history[0] || null
   }
-
-  /**
-   * Export history as JSON string (for debugging)
-   */
-  export(): string {
-    return JSON.stringify(this.history, null, 2)
-  }
-
-  /**
-   * Import history from JSON string (for debugging)
-   */
-  import(jsonString: string): void {
-    try {
-      const imported = JSON.parse(jsonString)
-      if (Array.isArray(imported)) {
-        this.history = imported.slice(0, this.maxSize)
-        this.currentIndex = -1
-      }
-    } catch (err) {
-      console.error('Failed to import command history:', err)
-    }
-  }
 }
 
 /**
  * React hook for command history management
  */
-import { useState, useCallback } from 'react'
 
 export function useCommandHistory(maxSize: number = 100) {
   const [manager] = useState(() => new CommandHistoryManager(maxSize))

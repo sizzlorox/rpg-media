@@ -7,6 +7,7 @@ import { XPService } from '../services/xp-service'
 import { UserModel } from '../models/user'
 import { authMiddleware } from '../middleware/auth'
 import { xpForNextLevel, xpProgressPercent } from '../lib/constants'
+import { sanitizeError } from '../lib/error-sanitizer'
 
 const xp = new Hono<HonoEnv>()
 
@@ -26,9 +27,10 @@ xp.get('/breakdown', authMiddleware, async (c) => {
 
     return c.json({ breakdown })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -61,9 +63,10 @@ xp.get('/progress', authMiddleware, async (c) => {
       progress_percent: progress,
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })

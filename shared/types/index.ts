@@ -210,6 +210,7 @@ export interface JWTPayload {
   level: number
   iat?: number
   exp?: number
+  [key: string]: any  // Allow additional properties for Hono JWT compatibility
 }
 
 // ==================== Feature Flags ====================

@@ -525,7 +525,6 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
 
     // If no lines, return 0
     if (totalLinesCount === 0) {
-      console.warn('[calculateStartLine] No lines in buffer, returning 0')
       return 0
     }
 

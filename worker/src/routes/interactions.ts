@@ -8,6 +8,7 @@ import { PostModel } from '../models/post'
 import { UserModel } from '../models/user'
 import { XPService } from '../services/xp-service'
 import { authMiddleware } from '../middleware/auth'
+import { sanitizeError } from '../lib/error-sanitizer'
 import { rateLimiter } from '../middleware/rate-limit'
 import { XP_VALUES } from '../lib/constants'
 import { trackEvent } from '../lib/logger'
@@ -81,9 +82,10 @@ interactions.post('/posts/:id/like', authMiddleware, rateLimiter('like'), async 
       },
     }, 201)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -115,9 +117,10 @@ interactions.delete('/posts/:id/like', authMiddleware, async (c) => {
 
     return c.body(null, 204)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -201,9 +204,10 @@ interactions.post('/posts/:id/comments', authMiddleware, rateLimiter('comment'),
       },
     }, 201)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -295,9 +299,10 @@ interactions.get('/posts/:id/comments', async (c) => {
       }
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -358,9 +363,10 @@ interactions.post('/users/:username/follow', authMiddleware, async (c) => {
       level_up: result.levelUp,
     }, 201)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -399,9 +405,10 @@ interactions.delete('/users/:username/follow', authMiddleware, async (c) => {
 
     return c.body(null, 204)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })

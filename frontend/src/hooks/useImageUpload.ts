@@ -84,8 +84,6 @@ export function useImageUpload(maxSizeMB: number = 5): UseImageUploadReturn {
       progressCallback = undefined
     }
 
-    console.log('[useImageUpload] Starting upload, file:', fileToUpload)
-
     if (!fileToUpload) {
       console.error('[useImageUpload] No file to upload')
       setError('No file selected')
@@ -97,7 +95,6 @@ export function useImageUpload(maxSizeMB: number = 5): UseImageUploadReturn {
     setProgress(0)
 
     try {
-      console.log('[useImageUpload] Calling apiClient.uploadFileWithProgress')
       const result = await apiClient.uploadFileWithProgress(fileToUpload, (percent) => {
         setProgress(percent)
         if (progressCallback) {
@@ -105,7 +102,6 @@ export function useImageUpload(maxSizeMB: number = 5): UseImageUploadReturn {
         }
       })
 
-      console.log('[useImageUpload] Upload successful:', result)
       setProgress(100)
       return result
     } catch (err) {

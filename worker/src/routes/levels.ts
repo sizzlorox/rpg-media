@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { HonoEnv } from '../lib/types'
 import { createDatabaseClient } from '../lib/db'
 import { xpForLevel, calculateLevel } from '../lib/constants'
+import { sanitizeError } from '../lib/error-sanitizer'
 
 const levels = new Hono<HonoEnv>()
 
@@ -27,9 +28,10 @@ levels.get('/thresholds', async (c) => {
 
     return c.json({ thresholds })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })

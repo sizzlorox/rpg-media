@@ -2,7 +2,7 @@
 
 import { DatabaseClient } from '../lib/db'
 import { PostModel } from '../models/post'
-import { Post, PostWithAuthor } from '../../../../shared/types'
+import { Post, PostWithAuthor } from '../../../shared/types'
 
 export class FeedService {
   private postModel: PostModel

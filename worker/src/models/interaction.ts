@@ -1,7 +1,7 @@
 // Interaction models: Likes, Comments, Follows
 
 import { DatabaseClient } from '../lib/db'
-import { Like, Comment, Follow } from '../../../../shared/types'
+import { Like, Comment, Follow } from '../../../shared/types'
 
 export class LikeModel {
   constructor(private db: DatabaseClient) {}

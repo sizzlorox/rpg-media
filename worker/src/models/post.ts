@@ -1,7 +1,7 @@
 // Post model with D1 prepared statements
 
 import { DatabaseClient } from '../lib/db'
-import { Post, PostWithAuthor } from '../../../../shared/types'
+import { Post, PostWithAuthor } from '../../../shared/types'
 
 export class PostModel {
   constructor(private db: DatabaseClient) {}
@@ -10,6 +10,12 @@ export class PostModel {
   async findById(id: string): Promise<Post | null> {
     // If ID is less than full UUID length, treat as prefix search
     if (id.length < 36) {
+      // Validate that ID contains only UUID characters (hex digits and hyphens)
+      // This prevents SQL injection via LIKE wildcards
+      if (!/^[0-9a-f-]+$/i.test(id)) {
+        throw new Error('Invalid post ID format')
+      }
+
       return await this.db.queryOne<Post>(
         'SELECT * FROM posts WHERE id LIKE ? LIMIT 1',
         `${id}%`
@@ -121,8 +127,71 @@ export class PostModel {
     }
   }
 
-  // Enrich multiple posts with author details (batch operation)
+  // Enrich multiple posts with author details (optimized batch operation)
   async enrichPostsWithAuthor(posts: Post[], currentUserId?: string): Promise<PostWithAuthor[]> {
-    return Promise.all(posts.map((post) => this.enrichPostWithAuthor(post, currentUserId)))
+    if (posts.length === 0) return []
+
+    // Extract unique author IDs and post IDs
+    const authorIds = [...new Set(posts.map(p => p.user_id))]
+    const postIds = posts.map(p => p.id)
+
+    // Batch fetch all authors
+    const authorPlaceholders = authorIds.map(() => '?').join(',')
+    const authors = await this.db.query<{
+      id: string
+      username: string
+      level: number
+      avatar_url: string | null
+    }>(
+      `SELECT id, username, level, avatar_url FROM users WHERE id IN (${authorPlaceholders})`,
+      ...authorIds
+    )
+    const authorMap = new Map(authors.map(a => [a.id, a]))
+
+    // Batch fetch like counts per post
+    const postPlaceholders = postIds.map(() => '?').join(',')
+    const likeCounts = await this.db.query<{ post_id: string; count: number }>(
+      `SELECT post_id, COUNT(*) as count FROM likes WHERE post_id IN (${postPlaceholders}) GROUP BY post_id`,
+      ...postIds
+    )
+    const likeCountMap = new Map(likeCounts.map(lc => [lc.post_id, lc.count]))
+
+    // Batch fetch comment counts per post
+    const commentCounts = await this.db.query<{ post_id: string; count: number }>(
+      `SELECT post_id, COUNT(*) as count FROM comments WHERE post_id IN (${postPlaceholders}) GROUP BY post_id`,
+      ...postIds
+    )
+    const commentCountMap = new Map(commentCounts.map(cc => [cc.post_id, cc.count]))
+
+    // Batch fetch user likes if currentUserId provided
+    let userLikesSet = new Set<string>()
+    if (currentUserId) {
+      const userLikes = await this.db.query<{ post_id: string }>(
+        `SELECT post_id FROM likes WHERE post_id IN (${postPlaceholders}) AND user_id = ?`,
+        ...postIds,
+        currentUserId
+      )
+      userLikesSet = new Set(userLikes.map(ul => ul.post_id))
+    }
+
+    // Assemble enriched posts
+    return posts.map(post => {
+      const author = authorMap.get(post.user_id)
+      if (!author) {
+        throw new Error(`Post author not found: ${post.user_id}`)
+      }
+
+      return {
+        ...post,
+        author: {
+          username: author.username,
+          level: author.level,
+          avatar_url: author.avatar_url,
+        },
+        like_count: likeCountMap.get(post.id) || 0,
+        comment_count: commentCountMap.get(post.id) || 0,
+        is_liked_by_user: userLikesSet.has(post.id),
+      }
+    })
   }
 }

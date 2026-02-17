@@ -6,12 +6,14 @@ import { HonoEnv } from '../lib/types'
 import { createDatabaseClient } from '../lib/db'
 import { AuthService } from '../services/auth-service'
 import { authMiddleware } from '../middleware/auth'
-import { RegisterRequest, LoginRequest } from '../../../../shared/types'
+import { rateLimiter } from '../middleware/rate-limit'
+import { sanitizeError } from '../lib/error-sanitizer'
+import { RegisterRequest, LoginRequest } from '../../../shared/types'
 
 const auth = new Hono<HonoEnv>()
 
 // POST /api/auth/register
-auth.post('/register', async (c) => {
+auth.post('/register', rateLimiter('register', false), async (c) => {
   const body = await c.req.json<RegisterRequest>()
   const { username, password } = body
 
@@ -39,17 +41,27 @@ auth.post('/register', async (c) => {
 
     return c.json(userProfile, 201)
   } catch (error) {
-    console.error('Registration error:', error)
+    const isDev = c.env.ENVIRONMENT !== 'production'
     const errorMessage = error instanceof Error ? error.message : String(error)
+
+    // Check for specific error types
     if (errorMessage.includes('already exists')) {
-      return c.json({ error: 'Conflict', message: errorMessage }, 409)
+      return c.json({
+        error: 'Conflict',
+        message: isDev ? errorMessage : 'This username is already taken'
+      }, 409)
     }
-    return c.json({ error: 'BadRequest', message: errorMessage }, 400)
+
+    // Generic error with sanitized message
+    return c.json({
+      error: 'BadRequest',
+      message: sanitizeError(error, isDev)
+    }, 400)
   }
 })
 
 // POST /api/auth/login
-auth.post('/login', async (c) => {
+auth.post('/login', rateLimiter('login', false), async (c) => {
   const body = await c.req.json<LoginRequest>()
   const { username, password } = body
 

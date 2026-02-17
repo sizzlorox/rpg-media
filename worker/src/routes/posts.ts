@@ -7,7 +7,8 @@ import { PostModel } from '../models/post'
 import { UserModel } from '../models/user'
 import { authMiddleware } from '../middleware/auth'
 import { rateLimiter } from '../middleware/rate-limit'
-import { CreatePostRequest } from '../../../../shared/types'
+import { sanitizeError } from '../lib/error-sanitizer'
+import { CreatePostRequest } from '../../../shared/types'
 import { getCharacterLimit, canAccessFeature, XP_VALUES } from '../lib/constants'
 import { trackEvent } from '../lib/logger'
 
@@ -99,9 +100,10 @@ posts.post('/', authMiddleware, rateLimiter('post'), async (c) => {
       level_up: leveledUp,
     }, 201)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -136,9 +138,10 @@ posts.get('/:id', async (c) => {
       comments,
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -174,9 +177,10 @@ posts.delete('/:id', authMiddleware, async (c) => {
 
     return c.body(null, 204)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })

@@ -7,13 +7,14 @@ import { UserModel } from '../models/user'
 import { PostModel } from '../models/post'
 import { authMiddleware, optionalAuth } from '../middleware/auth'
 import { canAccessFeature, THEME_OPTIONS } from '../lib/constants'
+import { sanitizeError } from '../lib/error-sanitizer'
 
 const users = new Hono<HonoEnv>()
 
 // GET /api/users/:username - Get user profile (character sheet)
 users.get('/:username', optionalAuth, async (c) => {
   const username = c.req.param('username')
-  const currentUserId = c.get('userId') // Optional
+  // const currentUserId = c.get('userId') // Optional - not used yet
 
   try {
     const db = createDatabaseClient(c.env)
@@ -30,9 +31,10 @@ users.get('/:username', optionalAuth, async (c) => {
 
     return c.json(profileWithoutPassword)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -72,9 +74,10 @@ users.get('/:username/posts', optionalAuth, async (c) => {
       has_more,
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -172,9 +175,10 @@ users.patch('/me/profile', authMiddleware, async (c) => {
 
     return c.json(updatedProfile)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -218,9 +222,10 @@ users.get('/:username/followers', optionalAuth, async (c) => {
       has_more,
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -264,9 +269,10 @@ users.get('/:username/following', optionalAuth, async (c) => {
       has_more,
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })

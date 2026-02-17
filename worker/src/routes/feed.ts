@@ -5,6 +5,7 @@ import { HonoEnv } from '../lib/types'
 import { createDatabaseClient } from '../lib/db'
 import { FeedService } from '../services/feed-service'
 import { authMiddleware, optionalAuth } from '../middleware/auth'
+import { sanitizeError } from '../lib/error-sanitizer'
 
 const feed = new Hono<HonoEnv>()
 
@@ -27,9 +28,10 @@ feed.get('/home', authMiddleware, async (c) => {
 
     return c.json(result)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -50,9 +52,10 @@ feed.get('/discover', optionalAuth, async (c) => {
 
     return c.json(result)
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })

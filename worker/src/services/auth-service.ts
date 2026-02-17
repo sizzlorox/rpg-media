@@ -4,7 +4,7 @@ import { hash, compare } from 'bcryptjs'
 import { sign } from 'hono/jwt'
 import { DatabaseClient } from '../lib/db'
 import { Env } from '../lib/types'
-import { User, UserProfile, JWTPayload } from '../../../../shared/types'
+import { User, UserProfile, JWTPayload } from '../../../shared/types'
 import { calculateLevel, xpForLevel, xpForNextLevel, xpProgressPercent } from '../lib/constants'
 
 const SALT_ROUNDS = 10
@@ -24,6 +24,15 @@ export class AuthService {
 
     if (password.length < 8) {
       throw new Error('Password must be at least 8 characters')
+    }
+
+    // Check password complexity
+    const hasUpper = /[A-Z]/.test(password)
+    const hasLower = /[a-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+
+    if (!hasUpper || !hasLower || !hasNumber) {
+      throw new Error('Password must contain uppercase, lowercase, and number')
     }
 
     // Check if username exists

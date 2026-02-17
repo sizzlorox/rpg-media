@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { HonoEnv } from '../lib/types'
 import { authMiddleware } from '../middleware/auth'
 import { canAccessFeature } from '../lib/constants'
+import { sanitizeError } from '../lib/error-sanitizer'
 
 const media = new Hono<HonoEnv>()
 
@@ -72,9 +73,10 @@ media.post('/upload-url', authMiddleware, async (c) => {
       expires_in: 300, // 5 minutes
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -115,8 +117,34 @@ media.put('/upload/:key', authMiddleware, async (c) => {
       }, 503)
     }
 
+    // Validate file size (5MB limit)
+    const contentLength = c.req.header('content-length')
+    const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+
+    if (!contentLength || parseInt(contentLength) > MAX_FILE_SIZE) {
+      return c.json({
+        error: 'BadRequest',
+        message: 'File size must not exceed 5MB'
+      }, 400)
+    }
+
     // Get file data from request
     const fileData = await c.req.arrayBuffer()
+
+    // Validate image content by checking magic bytes
+    const bytes = new Uint8Array(fileData)
+    const isValidImage =
+      (bytes[0] === 0xFF && bytes[1] === 0xD8) || // JPEG
+      (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) || // PNG
+      (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) || // GIF
+      (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) // WebP (RIFF)
+
+    if (!isValidImage) {
+      return c.json({
+        error: 'BadRequest',
+        message: 'Invalid image file. Only JPEG, PNG, GIF, and WebP are supported.'
+      }, 400)
+    }
 
     // Upload to R2
     await bucket.put(key, fileData, {
@@ -133,9 +161,10 @@ media.put('/upload/:key', authMiddleware, async (c) => {
       key,
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })
@@ -167,9 +196,10 @@ media.get('/:key{.+}', async (c) => {
       },
     })
   } catch (error) {
+    const isDev = c.env.ENVIRONMENT !== 'production'
     return c.json({
       error: 'InternalServerError',
-      message: (error as Error).message,
+      message: sanitizeError(error, isDev),
     }, 500)
   }
 })

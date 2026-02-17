@@ -51,7 +51,11 @@ class APIClient {
 
       return data as T
     } catch (error) {
-      console.error('API request failed:', error)
+      // Log to Sentry for production monitoring
+      if (error instanceof Error) {
+        const { captureException } = await import('@sentry/react')
+        captureException(error)
+      }
       throw error
     }
   }

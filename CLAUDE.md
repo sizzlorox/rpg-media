@@ -201,4 +201,185 @@ frontend/src/
 - Tablet (641-1024px): 12px font, 60 cols, 28 rows, medium logo
 - Desktop (>1024px): 14px font, 80 cols, 30 rows, full logo
 
+## Production Deployment Checklist
+
+### Required Environment Variables
+
+**Worker (Cloudflare) - Set via wrangler:**
+- `JWT_SECRET` - **REQUIRED** - Set via `wrangler secret put JWT_SECRET`
+  - Generate with: `openssl rand -base64 32`
+  - Used for JWT token signing and verification
+  - Validation: Worker will fail to start if not set
+- `PUBLIC_URL` - **REQUIRED** - Set in `worker/wrangler.toml`
+  - Your production domain (e.g., `https://rpg.apogeeforge.com`)
+  - Used for generating media URLs
+  - Validation: Worker will fail to start if not set
+- `ENVIRONMENT` - Set to `"production"` in `worker/wrangler.toml`
+
+**Frontend (Optional):**
+- `VITE_SENTRY_DSN` - Sentry error tracking DSN (optional but recommended)
+- `VITE_API_BASE_URL` - API endpoint URL (defaults to `/api`)
+
+**Database & Storage (Already configured in wrangler.toml):**
+- D1 Database: `rpg-social-media-production` (binding: `DB`)
+- R2 Bucket: `rpg-media-uploads-production` (binding: `MEDIA_BUCKET`)
+- KV Namespace: Rate limiting storage (binding: `RATE_LIMIT_KV`)
+
+### Before First Deploy
+
+1. **Set Production Secrets:**
+   ```bash
+   # Generate and set JWT secret
+   openssl rand -base64 32 | wrangler secret put JWT_SECRET
+
+   # Verify secrets are set
+   wrangler secret list
+   ```
+
+2. **Update Configuration:**
+   - Ensure `PUBLIC_URL` in `worker/wrangler.toml` matches your production domain
+   - Update CORS allowed origins in `worker/src/index.ts` if needed
+
+3. **Run Pre-Deployment Checks:**
+   ```bash
+   # Type check
+   cd worker && tsc --noEmit
+   cd frontend && tsc --noEmit
+
+   # Lint
+   cd worker && npm run lint
+   cd frontend && npm run lint
+
+   # Build verification
+   cd worker && npm run build
+   cd frontend && npm run build
+   ```
+
+4. **Test Health Endpoint:**
+   ```bash
+   # After deployment
+   curl https://your-domain.com/health
+   # Should return: {"status":"healthy","database":"connected"}
+   ```
+
+5. **Verify Sentry Integration:**
+   - Frontend: Check that error boundary is active
+   - Trigger a test error in development to verify Sentry capture
+
+### Security Features Enabled
+
+✅ **Authentication & Authorization:**
+- JWT-based auth with httpOnly cookies
+- Strong password requirements (8+ chars, uppercase, lowercase, number)
+- Rate limiting on auth endpoints (5 register/hour, 10 login/hour per IP)
+
+✅ **Input Validation:**
+- SQL injection protection (parameterized queries, input validation)
+- File upload validation (5MB limit, magic byte verification)
+- JSON body parsing with error handling
+- Content-Type validation for all POST/PUT requests
+
+✅ **Security Headers:**
+- Content-Security-Policy
+- X-Frame-Options: DENY
+- X-Content-Type-Options: nosniff
+- X-XSS-Protection
+- Strict-Transport-Security (HTTPS only)
+- Permissions-Policy (restrict browser features)
+
+✅ **Error Handling:**
+- Sanitized error messages in production (no stack traces exposed)
+- Comprehensive error boundary in React
+- Request ID tracking for debugging (X-Request-Id header)
+- Sentry integration for production monitoring
+
+✅ **Performance Optimizations:**
+- Batch database queries (no N+1 queries)
+- Indexed database lookups
+- Efficient rate limiting with KV storage
+
+### Known Limitations (Acceptable for V1)
+
+These features are partially implemented or disconnected but **not blocking production deployment**:
+
+1. **Command History Persistence:**
+   - Current: Session-only (in-memory)
+   - Future: localStorage persistence
+   - Files: `frontend/src/utils/command-history-manager.ts`
+
+2. **`/stats` Command:**
+   - Status: Command defined but not connected to backend
+   - Files: `useTerminalCommands.ts`, `useHomeLogic.ts`
+   - To Complete: Create stats API endpoint and wire callback
+
+3. **Image Upload UI:**
+   - Status: Backend infrastructure complete, frontend commands not wired
+   - Commands: `/post --attach`, `/avatar`, `/banner`
+   - Files: `useImageUpload.ts`, `TerminalFilePicker.tsx`, `upload-ui.ts`
+   - To Complete: Wire upload callbacks in `useHomeLogic.ts`
+
+### Post-Launch Monitoring
+
+**Health Check:**
+- URL: `https://your-domain.com/health`
+- Monitor: Database connectivity, environment status
+- Expected: `{"status":"healthy","database":"connected"}`
+
+**Sentry Dashboard:**
+- Frontend errors: React component crashes, API failures
+- Monitor error rate and response times
+
+**Cloudflare Analytics:**
+- Track: Request volume, geographic distribution, cache hit rates
+- Privacy-friendly (no PII collected)
+
+**Rate Limiting Logs:**
+- Check for blocked requests in worker logs
+- Adjust limits if needed based on legitimate traffic patterns
+
+### Deployment Commands
+
+```bash
+# Deploy worker to production
+cd worker
+wrangler deploy
+
+# Deploy frontend to Cloudflare Pages (if using)
+cd frontend
+npm run build
+# Upload dist/ to your hosting provider
+```
+
+### Rollback Procedure
+
+If issues occur after deployment:
+
+1. **Worker Rollback:**
+   ```bash
+   cd worker
+   wrangler rollback
+   ```
+
+2. **Frontend Rollback:**
+   - Revert to previous deployment in your hosting dashboard
+   - Or redeploy previous git commit
+
+3. **Database Rollback:**
+   - D1 doesn't have automatic rollback
+   - Test migrations locally first
+   - Keep backups of production data
+
+### Post-Deployment Smoke Tests
+
+1. ✅ Register new account with strong password
+2. ✅ Login with correct credentials
+3. ✅ Create a post
+4. ✅ Like and comment on a post
+5. ✅ View feed
+6. ✅ Check `/health` endpoint returns healthy
+7. ✅ Verify Sentry receives errors (trigger test error)
+8. ✅ Check request IDs in response headers
+9. ✅ Test rate limiting (make 11 login attempts)
+10. ✅ Verify weak passwords are rejected
+
 <!-- MANUAL ADDITIONS END -->

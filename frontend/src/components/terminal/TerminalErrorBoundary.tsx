@@ -5,6 +5,7 @@
 
 import React, { Component } from 'react'
 import type { ReactNode } from 'react'
+import * as Sentry from '@sentry/react'
 
 interface Props {
   children: ReactNode
@@ -28,12 +29,13 @@ export class TerminalErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error details for debugging
-    console.error('[TerminalErrorBoundary] Component crashed:', {
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      errorCount: this.state.errorCount + 1
+    // Log error to Sentry for production monitoring
+    Sentry.captureException(error, {
+      contexts: {
+        react: {
+          componentStack: errorInfo.componentStack
+        }
+      }
     })
 
     // Update error count
