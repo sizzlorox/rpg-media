@@ -332,7 +332,7 @@ export function Landing() {
 
   return (
     <div className="landing-page">
-      <Terminal onCommand={handleCommand} initialContent={terminalOutput} />
+      <Terminal onCommand={handleCommand} initialContent={terminalOutput} skipWelcome={true} />
     </div>
   )
 }
