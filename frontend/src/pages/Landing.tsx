@@ -17,6 +17,7 @@ import {
 import { createDoubleLine } from '../utils/ascii-art'
 import { green, yellow, red, cyan, bold } from '../utils/ansi-colors'
 import { getResponsiveWidth } from '../utils/responsive-width'
+import { getResponsiveConfig } from '../utils/terminal-responsive'
 
 export function Landing() {
   const { recentPosts, trendingPosts, isLoading, error, hasMore, loadMore, refresh } = usePublicFeed()
@@ -24,9 +25,31 @@ export function Landing() {
   const [terminalOutput, setTerminalOutput] = useState<string>('')
   const [terminalCols, setTerminalCols] = useState<number>(80) // Reactive terminal width for rebuilding
   const terminalColsRef = useRef<number>(80) // Stores current terminal width
+  const previousBreakpointRef = useRef<'mobile' | 'tablet' | 'desktop' | null>(null)
 
   const writeLine = useCallback((text: string) => {
     setTerminalOutput((prev) => prev + text + '\r\n')
+  }, [])
+
+  // Listen for window resize to rebuild man page on breakpoint transitions
+  useEffect(() => {
+    const handleResize = () => {
+      const newWidth = window.innerWidth
+      const responsiveConfig = getResponsiveConfig(newWidth)
+      const newBreakpoint = responsiveConfig.breakpoint
+      const newCols = responsiveConfig.config.minCols
+
+      // Trigger man page rebuild only on breakpoint transition
+      if (previousBreakpointRef.current &&
+          previousBreakpointRef.current !== newBreakpoint) {
+        terminalColsRef.current = newCols
+        setTerminalCols(newCols)
+      }
+      previousBreakpointRef.current = newBreakpoint
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   // Build initial man page content (responsive)
@@ -39,7 +62,7 @@ export function Landing() {
     lines.push(green(createDoubleLine(width)))
 
     // Header
-    lines.push(createManPageHeader('SOCIALFORGE', 1))
+    lines.push(createManPageHeader('SOCIALFORGE', 1, width))
     lines.push('')
 
     // NAME section
@@ -143,7 +166,7 @@ export function Landing() {
     lines.push('')
 
     // Footer
-    lines.push(createManPageFooter('SOCIALFORGE', getManPageDate()))
+    lines.push(createManPageFooter('SOCIALFORGE', getManPageDate(), width))
     lines.push(green(createDoubleLine(width)))
     lines.push('')
 
@@ -227,13 +250,13 @@ export function Landing() {
 
           case '/levels':
             writeLine(cyan('Level Progression Table'))
-            writeLine(cyan('═'.repeat(60)))
+            writeLine(cyan('═'.repeat(Math.min(60, cols - 2))))
             writeLine('')
 
             const result = await apiClient.get<{ thresholds: Array<{ level: number; xp_required: number; features_unlocked: string | null }> }>('/levels/thresholds')
 
             writeLine(yellow('Level | XP Required | Feature Unlocked'))
-            writeLine('─'.repeat(60))
+            writeLine('─'.repeat(Math.min(60, cols - 2)))
 
             result.thresholds.forEach((threshold) => {
               const levelStr = threshold.level.toString().padEnd(5)

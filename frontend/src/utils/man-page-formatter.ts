@@ -6,13 +6,13 @@ import { bold, green } from './ansi-colors'
  * Creates man page header in standard format
  * @param title - Page title (e.g., "SOCIALFORGE")
  * @param section - Man page section number (default 1 for general commands)
+ * @param width - Width of the header (default 80)
  * @returns Formatted header like "SOCIALFORGE(1)    General Commands Manual    SOCIALFORGE(1)"
  */
-export function createManPageHeader(title: string, section: number = 1): string {
+export function createManPageHeader(title: string, section: number = 1, width: number = 80): string {
   const titleSection = `${title.toUpperCase()}(${section})`
   const sectionName = getSectionName(section)
-  const width = 80
-  const padding = width - titleSection.length * 2 - sectionName.length
+  const padding = Math.max(0, width - titleSection.length * 2 - sectionName.length)
   const leftPad = Math.floor(padding / 2)
   const rightPad = padding - leftPad
 
@@ -49,12 +49,12 @@ export function createSectionHeader(name: string): string {
  * Creates man page footer with date
  * @param title - Page title
  * @param date - Date string (e.g., "February 2026")
+ * @param width - Width of the footer (default 80)
  * @returns Formatted footer
  */
-export function createManPageFooter(title: string, date: string): string {
+export function createManPageFooter(title: string, date: string, width: number = 80): string {
   const titleUpper = title.toUpperCase()
-  const width = 80
-  const padding = width - titleUpper.length * 2 - date.length - `(1)`.length
+  const padding = Math.max(0, width - titleUpper.length * 2 - date.length - `(1)`.length)
   const leftPad = Math.floor(padding / 2)
   const rightPad = padding - leftPad
 
