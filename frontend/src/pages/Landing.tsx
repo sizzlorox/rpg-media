@@ -18,6 +18,8 @@ import { createDoubleLine } from '../utils/ascii-art'
 import { green, yellow, red, cyan, bold } from '../utils/ansi-colors'
 import { getResponsiveWidth } from '../utils/responsive-width'
 import { getResponsiveConfig } from '../utils/terminal-responsive'
+import { renderWelcomeMessage } from '../utils/welcome-message'
+import type { LogoType } from '../utils/ascii-logo'
 
 export function Landing() {
   const { recentPosts, trendingPosts, isLoading, error, hasMore, loadMore, refresh } = usePublicFeed()
@@ -57,6 +59,14 @@ export function Landing() {
     const lines: string[] = []
     const cols = terminalCols
     const width = getResponsiveWidth(cols)
+
+    // Determine logo type based on terminal columns (same logic as terminal-responsive.ts)
+    const logoType: LogoType = cols <= 40 ? 'compact' : cols <= 60 ? 'medium' : 'full'
+
+    // Prepend welcome banner
+    const welcomeBanner = renderWelcomeMessage(cols, logoType)
+    lines.push(welcomeBanner)
+    lines.push('') // Empty line separator
 
     // Top border
     lines.push(green(createDoubleLine(width)))
