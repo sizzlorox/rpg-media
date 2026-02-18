@@ -1,7 +1,8 @@
 // Shared authentication context to prevent isolated state instances across components
 // This fixes the black screen bug where Landing.tsx and App.tsx had separate useAuth instances
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { apiClient } from '../services/api-client'
 import type { UserProfile, RegisterRequest, LoginRequest, TOTPChallengeResponse } from '../../../shared/types'
 

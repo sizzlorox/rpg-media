@@ -23,7 +23,7 @@ import type { LogoType } from '../utils/ascii-logo'
 
 export function Landing() {
   const { recentPosts, trendingPosts, isLoading, error, hasMore, loadMore, refresh } = usePublicFeed()
-  const { login, register, forgotPassword, isAuthenticated } = useAuth()
+  const { login, register, forgotPassword } = useAuth()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
 
   // Initialize cols from actual viewport width, not a hardcoded 80

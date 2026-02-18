@@ -16,9 +16,9 @@ export function AuthPage() {
   }, [])
 
   const handleRegister = useCallback(
-    async (username: string, password: string) => {
+    async (username: string, email: string, password: string) => {
       try {
-        const user = await register(username, password)
+        const user = await register(username, email, password)
         writeLine(green(`✓ Account created successfully!`))
         writeLine(green(`Welcome, ${user.username}!`))
         writeLine(yellow(`Level: ${user.level} | XP: ${user.total_xp}`))
@@ -37,9 +37,14 @@ export function AuthPage() {
   const handleLogin = useCallback(
     async (username: string, password: string) => {
       try {
-        const user = await login(username, password)
-        writeLine(green(`✓ Welcome back, ${user.username}!`))
-        writeLine(yellow(`Level: ${user.level} | XP: ${user.total_xp}/${user.xp_for_next_level}`))
+        const result = await login(username, password)
+        if ('requires_2fa' in result && result.requires_2fa) {
+          writeLine(yellow('2FA required. Enter your authenticator code:'))
+          writeLine(yellow('  /2fa <code>'))
+          return
+        }
+        writeLine(green(`✓ Welcome back, ${result.username}!`))
+        writeLine(yellow(`Level: ${result.level} | XP: ${result.total_xp}/${result.xp_for_next_level}`))
         writeLine('')
         writeLine('Type /help to see available commands')
       } catch (error) {
