@@ -5,6 +5,7 @@ import { Terminal } from '../components/Terminal'
 import { useAuth } from '../hooks/useAuth'
 import { useTerminalCommands } from '../hooks/useTerminalCommands'
 import { green, yellow, red } from '../utils/ansi-colors'
+import type { UserProfile } from '../../../shared/types'
 import '../styles/terminal.css'
 
 export function AuthPage() {
@@ -43,8 +44,9 @@ export function AuthPage() {
           writeLine(yellow('  /2fa <code>'))
           return
         }
-        writeLine(green(`✓ Welcome back, ${result.username}!`))
-        writeLine(yellow(`Level: ${result.level} | XP: ${result.total_xp}/${result.xp_for_next_level}`))
+        const user = result as UserProfile
+        writeLine(green(`✓ Welcome back, ${user.username}!`))
+        writeLine(yellow(`Level: ${user.level} | XP: ${user.total_xp}/${user.xp_for_next_level}`))
         writeLine('')
         writeLine('Type /help to see available commands')
       } catch (error) {
