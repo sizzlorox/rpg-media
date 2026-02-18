@@ -25,9 +25,16 @@ export function Landing() {
   const { recentPosts, trendingPosts, isLoading, error, hasMore, loadMore, refresh } = usePublicFeed()
   const { login, register, forgotPassword, isAuthenticated } = useAuth()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
-  const [terminalCols, setTerminalCols] = useState<number>(80) // Reactive terminal width for rebuilding
-  const terminalColsRef = useRef<number>(80) // Stores current terminal width
-  const previousBreakpointRef = useRef<'mobile' | 'tablet' | 'desktop' | null>(null)
+
+  // Initialize cols from actual viewport width, not a hardcoded 80
+  const [terminalCols, setTerminalCols] = useState<number>(() => {
+    const cfg = getResponsiveConfig(typeof window !== 'undefined' ? window.innerWidth : 1024)
+    return cfg.config.minCols
+  })
+  const terminalColsRef = useRef<number>(terminalCols)
+  const previousBreakpointRef = useRef<'mobile' | 'tablet' | 'desktop' | null>(
+    getResponsiveConfig(typeof window !== 'undefined' ? window.innerWidth : 1024).breakpoint
+  )
 
   const writeLine = useCallback((text: string) => {
     setTerminalOutput((prev) => prev + text + '\r\n')
