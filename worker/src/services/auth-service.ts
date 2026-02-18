@@ -104,9 +104,9 @@ export class AuthService {
     }
   }
 
-  // Login: returns success with token, OR totp_required with challenge token
+  // Login: returns success with tokens, OR totp_required with challenge token
   async login(username: string, password: string): Promise<
-    | { type: 'success'; user: UserProfile; token: string }
+    | { type: 'success'; user: UserProfile; accessToken: string; refreshToken: string }
     | { type: 'totp_required'; challengeToken: string }
   > {
     const user = await this.db.queryOne<User>(
@@ -130,12 +130,13 @@ export class AuthService {
       return { type: 'totp_required', challengeToken }
     }
 
-    const token = await this.generateToken(user)
-    return { type: 'success', user: await this.buildUserProfile(user), token }
+    const accessToken = await this.generateAccessToken(user)
+    const { rawToken: refreshToken } = await this.generateRefreshToken(user.id)
+    return { type: 'success', user: await this.buildUserProfile(user), accessToken, refreshToken }
   }
 
   // Verify TOTP code (or recovery code) after challenge
-  async verifyTOTPChallenge(challengeToken: string, code: string): Promise<{ user: UserProfile; token: string }> {
+  async verifyTOTPChallenge(challengeToken: string, code: string): Promise<{ user: UserProfile; accessToken: string; refreshToken: string }> {
     let payload: JWTPayload
     try {
       payload = await verify(challengeToken, this.env.JWT_SECRET, 'HS256') as JWTPayload
@@ -160,8 +161,9 @@ export class AuthService {
     // Try TOTP first
     const isValidTOTP = this.totpService.validate(user.totp_secret, code)
     if (isValidTOTP) {
-      const token = await this.generateToken(user)
-      return { user: await this.buildUserProfile(user), token }
+      const accessToken = await this.generateAccessToken(user)
+      const { rawToken: refreshToken } = await this.generateRefreshToken(user.id)
+      return { user: await this.buildUserProfile(user), accessToken, refreshToken }
     }
 
     // Try recovery codes (constant-time check via bcrypt)
@@ -176,8 +178,9 @@ export class AuthService {
             'UPDATE users SET recovery_codes = ? WHERE id = ?',
             JSON.stringify(updatedCodes), userId
           )
-          const token = await this.generateToken(user)
-          return { user: await this.buildUserProfile(user), token }
+          const accessToken = await this.generateAccessToken(user)
+          const { rawToken: refreshToken } = await this.generateRefreshToken(user.id)
+          return { user: await this.buildUserProfile(user), accessToken, refreshToken }
         }
       }
     }
@@ -324,16 +327,83 @@ export class AuthService {
     )
   }
 
-  // Generate JWT token for authenticated session
-  async generateToken(user: User): Promise<string> {
+  // Generate short-lived access JWT (15 minutes)
+  async generateAccessToken(user: User): Promise<string> {
     const payload: JWTPayload = {
       sub: user.id,
       username: user.username,
       level: user.level,
       iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
+      exp: Math.floor(Date.now() / 1000) + (15 * 60), // 15 minutes
     }
     return await sign(payload, this.env.JWT_SECRET)
+  }
+
+  // Generate a 7-day opaque refresh token and store its hash in DB
+  async generateRefreshToken(userId: string): Promise<{ rawToken: string; familyId: string }> {
+    const rawToken = this.generateRawToken()
+    const tokenHash = await this.sha256Hex(rawToken)
+    const familyId = crypto.randomUUID()
+    const now = Date.now()
+    await this.db.exec(
+      `INSERT INTO refresh_tokens (id, user_id, token_hash, family_id, expires_at, revoked_at, created_at)
+       VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+      crypto.randomUUID(), userId, tokenHash, familyId,
+      now + 7 * 24 * 60 * 60 * 1000, now
+    )
+    return { rawToken, familyId }
+  }
+
+  // Rotate refresh token — revokes old, issues new in same family; detects replay attacks
+  async rotateRefreshToken(rawToken: string): Promise<{ user: User; newRawToken: string }> {
+    const tokenHash = await this.sha256Hex(rawToken)
+    const now = Date.now()
+
+    const record = await this.db.queryOne<{
+      id: string; user_id: string; family_id: string;
+      expires_at: number; revoked_at: number | null
+    }>(`SELECT id, user_id, family_id, expires_at, revoked_at FROM refresh_tokens WHERE token_hash = ?`, tokenHash)
+
+    if (!record) throw new Error('Invalid refresh token')
+
+    // Replay attack detected: token already revoked → revoke entire family, force re-login
+    if (record.revoked_at !== null) {
+      await this.db.exec(
+        `UPDATE refresh_tokens SET revoked_at = ? WHERE family_id = ? AND revoked_at IS NULL`,
+        now, record.family_id
+      )
+      throw new Error('Session revoked. Please log in again.')
+    }
+
+    if (record.expires_at < now) throw new Error('Refresh token expired. Please log in again.')
+
+    const user = await this.db.queryOne<User>('SELECT * FROM users WHERE id = ?', record.user_id)
+    if (!user) throw new Error('User not found')
+
+    // Rotate: revoke old + insert new in one batch (Constitution Principle V)
+    const newRawToken = this.generateRawToken()
+    const newTokenHash = await this.sha256Hex(newRawToken)
+    const newId = crypto.randomUUID()
+    const newExpires = now + 7 * 24 * 60 * 60 * 1000
+
+    await this.db.batch([
+      this.db.raw().prepare(`UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?`).bind(now, record.id),
+      this.db.raw().prepare(
+        `INSERT INTO refresh_tokens (id, user_id, token_hash, family_id, expires_at, revoked_at, created_at)
+         VALUES (?, ?, ?, ?, ?, NULL, ?)`
+      ).bind(newId, record.user_id, newTokenHash, record.family_id, newExpires, now),
+    ])
+
+    return { user, newRawToken }
+  }
+
+  // Revoke a refresh token (used by logout — idempotent)
+  async revokeRefreshToken(rawToken: string): Promise<void> {
+    const tokenHash = await this.sha256Hex(rawToken)
+    await this.db.exec(
+      `UPDATE refresh_tokens SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL`,
+      Date.now(), tokenHash
+    )
   }
 
   // Generate 5-minute TOTP challenge JWT (not an auth token)
@@ -345,6 +415,19 @@ export class AuthService {
       exp: Math.floor(Date.now() / 1000) + (5 * 60), // 5 minutes
     }
     return await sign(payload, this.env.JWT_SECRET)
+  }
+
+  // Generate a cryptographically random 64-char hex token
+  private generateRawToken(): string {
+    const b = new Uint8Array(32)
+    crypto.getRandomValues(b)
+    return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('')
+  }
+
+  // SHA-256 hex digest
+  private async sha256Hex(input: string): Promise<string> {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+    return Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('')
   }
 
   // Build user profile with computed stats

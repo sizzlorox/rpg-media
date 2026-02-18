@@ -9,6 +9,24 @@ interface RequestOptions extends RequestInit {
   body?: any
 }
 
+// Singleton refresh promise — ensures N concurrent 401s produce exactly 1 refresh call
+let refreshPromise: Promise<void> | null = null
+
+async function attemptTokenRefresh(): Promise<void> {
+  if (refreshPromise) return refreshPromise  // queue behind in-flight refresh
+
+  refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'include' })
+    .then(async (res) => {
+      if (!res.ok) {
+        window.dispatchEvent(new CustomEvent('auth:session-expired'))
+        throw new Error('Session expired')
+      }
+    })
+    .finally(() => { refreshPromise = null })
+
+  return refreshPromise
+}
+
 class APIClient {
   private baseURL: string
 
@@ -18,7 +36,8 @@ class APIClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestOptions = {}
+    options: RequestOptions = {},
+    _isRetry = false
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
@@ -43,6 +62,21 @@ class APIClient {
         return {} as T
       }
 
+      // Transparent token refresh: on 401, try to get a new access token then retry once
+      if (response.status === 401 && !_isRetry) {
+        if (endpoint === '/auth/refresh') {
+          // Refresh endpoint itself returned 401 — session truly gone
+          window.dispatchEvent(new CustomEvent('auth:session-expired'))
+          throw new Error('Session expired. Please log in again.')
+        }
+        try {
+          await attemptTokenRefresh()
+          return this.request<T>(endpoint, options, true)
+        } catch {
+          throw new Error('Session expired. Please log in again.')
+        }
+      }
+
       const data = await response.json()
 
       if (!response.ok) {
@@ -51,6 +85,10 @@ class APIClient {
 
       return data as T
     } catch (error) {
+      // Skip Sentry for expected session-expired errors
+      if (error instanceof Error && error.message.includes('Session expired')) {
+        throw error
+      }
       // Log to Sentry for production monitoring
       if (error instanceof Error) {
         const { captureException } = await import('@sentry/react')

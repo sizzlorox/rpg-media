@@ -63,6 +63,12 @@ export function renderManPagePost(
   lines.push(wrappedContent)
   lines.push('')
 
+  // Image (if media_url exists) - use markdown format for custom terminal renderer
+  if (post.media_url) {
+    lines.push(`     ![Post image](${post.media_url})`)
+    lines.push('')
+  }
+
   // Engagement stats
   const engagement = `❤ ${post.like_count} likes  💬 ${post.comment_count} comments`
   lines.push(`     ${green(engagement)}`)

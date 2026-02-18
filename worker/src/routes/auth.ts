@@ -1,7 +1,7 @@
 // Authentication routes: register, login, logout, me, email verify, 2FA, password reset
 
 import { Hono } from 'hono'
-import { setCookie, deleteCookie } from 'hono/cookie'
+import { setCookie, getCookie, deleteCookie } from 'hono/cookie'
 import { HonoEnv } from '../lib/types'
 import { createDatabaseClient } from '../lib/db'
 import { AuthService } from '../services/auth-service'
@@ -13,13 +13,23 @@ import { RegisterRequest, LoginRequest, VerifyEmailRequest, ForgotPasswordReques
 
 const auth = new Hono<HonoEnv>()
 
-function setCookieAuth(c: Parameters<typeof setCookie>[0], token: string, env: HonoEnv['Bindings']) {
+function setAccessTokenCookie(c: Parameters<typeof setCookie>[0], token: string, env: HonoEnv['Bindings']) {
   setCookie(c, 'auth_token', token, {
     httpOnly: true,
     secure: env.ENVIRONMENT === 'production',
     sameSite: 'Strict',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 15 * 60, // 15 minutes
     path: '/',
+  })
+}
+
+function setRefreshTokenCookie(c: Parameters<typeof setCookie>[0], token: string, env: HonoEnv['Bindings']) {
+  setCookie(c, 'refresh_token', token, {
+    httpOnly: true,
+    secure: env.ENVIRONMENT === 'production',
+    sameSite: 'Strict',
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+    path: '/api/auth', // Only sent to /api/auth/* endpoints
   })
 }
 
@@ -39,10 +49,11 @@ auth.post('/register', rateLimiter('register', false), async (c) => {
 
     const { userProfile, verificationToken } = await authService.register(username, email, password)
 
-    // Auto-login: generate auth cookie
+    // Auto-login: generate auth cookies
     const loginResult = await authService.login(username, password)
     if (loginResult.type === 'success') {
-      setCookieAuth(c, loginResult.token, c.env)
+      setAccessTokenCookie(c, loginResult.accessToken, c.env)
+      setRefreshTokenCookie(c, loginResult.refreshToken, c.env)
     }
 
     // Send verification email (fire and forget — don't fail registration on email error)
@@ -93,7 +104,8 @@ auth.post('/login', rateLimiter('login', false), async (c) => {
       return c.json({ requires_2fa: true, totp_challenge_token: result.challengeToken })
     }
 
-    setCookieAuth(c, result.token, c.env)
+    setAccessTokenCookie(c, result.accessToken, c.env)
+    setRefreshTokenCookie(c, result.refreshToken, c.env)
     return c.json(result.user)
   } catch (error) {
     return c.json({ error: 'Unauthorized', message: 'Invalid credentials' }, 401)
@@ -113,8 +125,9 @@ auth.post('/verify-totp', rateLimiter('totp_verify', false), async (c) => {
     const db = createDatabaseClient(c.env)
     const authService = new AuthService(db, c.env)
 
-    const { user, token } = await authService.verifyTOTPChallenge(totp_challenge_token, code)
-    setCookieAuth(c, token, c.env)
+    const { user, accessToken, refreshToken } = await authService.verifyTOTPChallenge(totp_challenge_token, code)
+    setAccessTokenCookie(c, accessToken, c.env)
+    setRefreshTokenCookie(c, refreshToken, c.env)
     return c.json(user)
   } catch (error) {
     return c.json({ error: 'Unauthorized', message: 'Invalid 2FA code' }, 401)
@@ -315,11 +328,44 @@ auth.post('/settings/change-password', authMiddleware, async (c) => {
   }
 })
 
+// POST /api/auth/refresh — silently rotates refresh token and issues new access token
+auth.post('/refresh', rateLimiter('token_refresh', false), async (c) => {
+  const rawRefreshToken = getCookie(c, 'refresh_token')
+  if (!rawRefreshToken) {
+    return c.json({ error: 'Unauthorized', message: 'No refresh token', code: 'SESSION_EXPIRED' }, 401)
+  }
+  try {
+    const db = createDatabaseClient(c.env)
+    const authService = new AuthService(db, c.env)
+    const { user, newRawToken } = await authService.rotateRefreshToken(rawRefreshToken)
+    const newAccessToken = await authService.generateAccessToken(user)
+    setAccessTokenCookie(c, newAccessToken, c.env)
+    setRefreshTokenCookie(c, newRawToken, c.env)
+    return c.json({ ok: true })
+  } catch (error) {
+    // Clear both cookies — force re-login
+    deleteCookie(c, 'auth_token', { path: '/' })
+    deleteCookie(c, 'refresh_token', { path: '/api/auth' })
+    return c.json({ error: 'Unauthorized', message: (error as Error).message, code: 'SESSION_EXPIRED' }, 401)
+  }
+})
+
 // POST /api/auth/logout
-auth.post('/logout', authMiddleware, (c) => {
-  deleteCookie(c, 'auth_token', {
-    path: '/',
-  })
+auth.post('/logout', authMiddleware, async (c) => {
+  // Revoke the refresh token in DB (fire-and-forget-safe)
+  const rawRefreshToken = getCookie(c, 'refresh_token')
+  if (rawRefreshToken) {
+    try {
+      const db = createDatabaseClient(c.env)
+      const authService = new AuthService(db, c.env)
+      await authService.revokeRefreshToken(rawRefreshToken)
+    } catch {
+      // Non-fatal — cookie deletion still proceeds
+    }
+  }
+
+  deleteCookie(c, 'auth_token', { path: '/' })
+  deleteCookie(c, 'refresh_token', { path: '/api/auth' })
 
   return c.json({ message: 'Logged out successfully' })
 })

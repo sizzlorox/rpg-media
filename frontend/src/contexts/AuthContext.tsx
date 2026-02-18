@@ -36,6 +36,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loadCurrentUser()
   }, [])
 
+  // Handle session expiry dispatched by api-client when refresh token is exhausted
+  useEffect(() => {
+    function handleSessionExpired() {
+      setUser(null)
+      setPendingTotpToken(null)
+    }
+    window.addEventListener('auth:session-expired', handleSessionExpired)
+    return () => window.removeEventListener('auth:session-expired', handleSessionExpired)
+  }, [])
+
   async function loadCurrentUser() {
     try {
       setIsLoading(true)
