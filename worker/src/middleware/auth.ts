@@ -36,6 +36,25 @@ export async function authMiddleware(c: Context<HonoEnv>, next: Next) {
   }
 }
 
+// Middleware requiring a verified email address (used for 2FA setup)
+// Legacy users with email=null bypass this check
+export async function emailVerifiedMiddleware(c: Context<HonoEnv>, next: Next) {
+  const userId = c.get('userId')
+  if (!userId) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+  }
+
+  const db = c.env.DB
+  const user = await db.prepare('SELECT email, email_verified FROM users WHERE id = ?').bind(userId).first<{ email: string | null; email_verified: number }>()
+
+  // Only block if email is set but unverified
+  if (user?.email && !user.email_verified) {
+    return c.json({ error: 'EmailNotVerified', message: 'Please verify your email first', code: 'EmailNotVerified' }, 403)
+  }
+
+  return await next()
+}
+
 // Optional auth middleware - doesn't fail if no token
 export async function optionalAuth(c: Context<HonoEnv>, next: Next) {
   const token = getCookie(c, 'auth_token')

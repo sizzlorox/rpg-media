@@ -23,7 +23,8 @@
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "hono": "^4.11.9"
+    "hono": "^4.11.9",
+    "otpauth": "^9.4.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260213.0",

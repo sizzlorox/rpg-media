@@ -21,6 +21,10 @@ export interface Env {
   OPENAI_API_KEY?: string
   GOOGLE_VISION_API_KEY?: string
   MODERATION_ENABLED?: string  // "true" | "false"
+
+  // Email (Resend)
+  RESEND_API_KEY?: string
+  FROM_EMAIL?: string
 }
 
 // Extended Hono context with user from JWT

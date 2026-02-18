@@ -10,8 +10,11 @@ export interface TerminalCommand {
 }
 
 interface UseTerminalCommandsOptions {
-  onRegister?: (username: string, password: string) => Promise<void>
+  onRegister?: (username: string, email: string, password: string) => Promise<void>
   onLogin?: (username: string, password: string) => Promise<void>
+  on2FA?: (code: string) => Promise<void>
+  onForgot?: (email: string) => Promise<void>
+  onSettings?: (subcommand: string | undefined, args: string[]) => Promise<void>
   onPost?: (content: string) => Promise<void>
   onPostWithAttachment?: (content: string) => Promise<void>
   onUploadAvatar?: () => Promise<void>
@@ -35,18 +38,18 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
     {
       name: '/register',
       handler: async (args) => {
-        if (args.length < 2) {
-          return 'Usage: /register <username> <password>'
+        if (args.length < 3) {
+          return 'Usage: /register <username> <email> <password>'
         }
-        const [username, password] = args
+        const [username, email, password] = args
         if (options.onRegister) {
-          await options.onRegister(username, password)
+          await options.onRegister(username, email, password)
           return '' // Callback handles output
         }
         return `✓ Account created: ${username}`
       },
       description: 'Create a new account',
-      usage: '/register <username> <password>',
+      usage: '/register <username> <email> <password>',
     },
     {
       name: '/login',
@@ -63,6 +66,52 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
       },
       description: 'Login to your account',
       usage: '/login <username> <password>',
+    },
+    {
+      name: '/2fa',
+      handler: async (args) => {
+        if (args.length === 0) {
+          return 'Usage: /2fa <code>'
+        }
+        const code = args[0]
+        if (options.on2FA) {
+          await options.on2FA(code)
+          return ''
+        }
+        return '✗ No 2FA challenge pending'
+      },
+      description: 'Enter 2FA code after login',
+      usage: '/2fa <code>',
+    },
+    {
+      name: '/forgot',
+      handler: async (args) => {
+        if (args.length === 0) {
+          return 'Usage: /forgot <email>'
+        }
+        const email = args[0]
+        if (options.onForgot) {
+          await options.onForgot(email)
+          return ''
+        }
+        return 'Password reset email sent (if account exists)'
+      },
+      description: 'Send password reset email',
+      usage: '/forgot <email>',
+    },
+    {
+      name: '/settings',
+      handler: async (args) => {
+        const subcommand = args[0]
+        const subArgs = args.slice(1)
+        if (options.onSettings) {
+          await options.onSettings(subcommand, subArgs)
+          return ''
+        }
+        return 'Use /settings to manage your account'
+      },
+      description: 'Manage account settings (email, 2FA, password)',
+      usage: '/settings [2fa setup|2fa enable <code>|2fa disable <pass>|verify-email|password <old> <new>]',
     },
     {
       name: '/post',

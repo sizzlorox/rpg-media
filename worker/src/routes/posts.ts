@@ -58,6 +58,18 @@ posts.post('/', authMiddleware, rateLimiter('post'), async (c) => {
     }
 
     const db = createDatabaseClient(c.env)
+
+    // Email verification gate — legacy users with email=null bypass; only block email set but unverified
+    const emailCheck = await db.queryOne<{ email_verified: number; email: string | null }>(
+      'SELECT email_verified, email FROM users WHERE id = ?', userId
+    )
+    if (emailCheck?.email && !emailCheck.email_verified) {
+      return c.json({
+        error: 'EmailNotVerified',
+        message: 'Verify your email before posting. Use /settings verify-email.',
+      }, 403)
+    }
+
     const postModel = new PostModel(db)
     const userModel = new UserModel(db)
 

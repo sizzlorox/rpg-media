@@ -56,8 +56,8 @@ interface FollowResponse {
 }
 
 export function useHomeLogic() {
-  const { user, isAuthenticated, login, register } = useAuth()
-  const { posts, loadDiscoveryFeed, loadHomeFeed } = useFeed()
+  const { user, isAuthenticated, login, register, verify2fa, forgotPassword, pendingTotpToken } = useAuth()
+  const { posts, isLoading, loadDiscoveryFeed, loadHomeFeed } = useFeed()
   const { xpProgress, loadXPProgress, refreshCharacter } = useCharacter()
   const { pagination, loadComments, lastViewedPostId } = useComments()
   const terminal = useTerminal()
@@ -115,11 +115,13 @@ export function useHomeLogic() {
   }, [isAuthenticated, loadHomeFeed, loadXPProgress, loadDiscoveryFeed])
 
   const handleRegister = useCallback(
-    async (username: string, password: string) => {
+    async (username: string, email: string, password: string) => {
       try {
-        await register(username, password)
+        await register(username, email, password)
         terminal.writeLine(green(`✓ Account created: ${username}`))
         terminal.writeLine(yellow('You are now logged in!'))
+        terminal.writeLine(cyan('Check your email to verify before posting.'))
+        terminal.writeLine('')
         await Promise.all([loadHomeFeed(), loadXPProgress()])
       } catch (error) {
         terminal.writeLine(red(`✗ Failed to register: ${(error as Error).message}`))
@@ -131,7 +133,16 @@ export function useHomeLogic() {
   const handleLogin = useCallback(
     async (username: string, password: string) => {
       try {
-        await login(username, password)
+        const result = await login(username, password)
+
+        // Check if 2FA is required
+        if ('requires_2fa' in result && result.requires_2fa) {
+          terminal.writeLine(yellow('2FA required. Enter your authenticator code:'))
+          terminal.writeLine(cyan('  /2fa <code>'))
+          terminal.writeLine(cyan('  (or recovery code: /2fa <8CHARCODE>)'))
+          return
+        }
+
         terminal.writeLine(green(`✓ Logged in as ${username}`))
         await Promise.all([loadHomeFeed(), loadXPProgress()])
       } catch (error) {
@@ -141,10 +152,187 @@ export function useHomeLogic() {
     [login, terminal, loadHomeFeed, loadXPProgress]
   )
 
+  const handle2FA = useCallback(
+    async (code: string) => {
+      const challengeToken = pendingTotpToken
+      if (!challengeToken) {
+        terminal.writeLine(red('✗ No 2FA challenge pending. Please /login first.'))
+        return
+      }
+
+      try {
+        await verify2fa(challengeToken, code)
+        terminal.writeLine(green('✓ 2FA verified. Logged in!'))
+        await Promise.all([loadHomeFeed(), loadXPProgress()])
+      } catch (error) {
+        terminal.writeLine(red(`✗ Invalid 2FA code: ${(error as Error).message}`))
+      }
+    },
+    [pendingTotpToken, verify2fa, terminal, loadHomeFeed, loadXPProgress]
+  )
+
+  const handleForgot = useCallback(
+    async (email: string) => {
+      try {
+        await forgotPassword(email)
+        terminal.writeLine(green('✓ If an account with that email exists, a reset link has been sent.'))
+      } catch {
+        // Always show success message — no enumeration
+        terminal.writeLine(green('✓ If an account with that email exists, a reset link has been sent.'))
+      }
+    },
+    [forgotPassword, terminal]
+  )
+
+  const handleSettings = useCallback(
+    async (subcommand: string | undefined, args: string[]) => {
+      if (!isAuthenticated || !user) {
+        terminal.writeLine(red('✗ You must be logged in to access settings'))
+        return
+      }
+
+      // No subcommand — show status panel
+      if (!subcommand) {
+        const cols = terminal.terminalCols.current || 80
+        const width = Math.min(cols, 60)
+        const border = '═'.repeat(width - 2)
+        terminal.writeLine(green(`╔${border}╗`))
+        terminal.writeLine(green(`║  ACCOUNT SETTINGS${' '.repeat(width - 20)}║`))
+        terminal.writeLine(green(`╚${border}╝`))
+        terminal.writeLine('')
+        terminal.writeLine(`  User     : ${cyan('@' + user.username)}`)
+        terminal.writeLine(`  Level    : ${yellow(String(user.level))}`)
+
+        const emailStatus = user.email
+          ? `${user.email} ${user.email_verified ? green('[VERIFIED]') : yellow('[UNVERIFIED]')}`
+          : red('[not set]')
+        terminal.writeLine(`  Email    : ${emailStatus}`)
+
+        const totpStatus = user.totp_enabled ? green('[ENABLED]') : yellow('[DISABLED]')
+        terminal.writeLine(`  2FA      : ${totpStatus}`)
+        terminal.writeLine('')
+        terminal.writeLine(cyan('Available Commands:'))
+        terminal.writeLine('  /settings 2fa setup            Set up two-factor authentication')
+        terminal.writeLine('  /settings 2fa enable <code>    Activate 2FA (after setup)')
+        terminal.writeLine('  /settings 2fa disable <pass>   Disable 2FA')
+        terminal.writeLine('  /settings verify-email         Resend verification email')
+        terminal.writeLine('  /settings password <old> <new> Change password')
+        return
+      }
+
+      switch (subcommand) {
+        case '2fa': {
+          const action = args[0]
+          if (!action) {
+            terminal.writeLine(yellow('Usage: /settings 2fa setup | enable <code> | disable <password>'))
+            return
+          }
+
+          if (action === 'setup') {
+            try {
+              const setup = await apiClient.post<{ secret: string; uri: string; recovery_codes: string[] }>(
+                '/auth/settings/2fa/setup', {}
+              )
+              terminal.writeLine(cyan('╔══════════════════════════════════════╗'))
+              terminal.writeLine(cyan('║  2FA SETUP — SAVE THIS INFORMATION   ║'))
+              terminal.writeLine(cyan('╚══════════════════════════════════════╝'))
+              terminal.writeLine('')
+              terminal.writeLine(`  Secret  : ${yellow(setup.secret)}`)
+              terminal.writeLine(`  OTP URI : ${cyan(setup.uri)}`)
+              terminal.writeLine('')
+              terminal.writeLine(yellow('  Recovery codes (save these — shown once):'))
+              setup.recovery_codes.forEach((code, i) => {
+                terminal.writeLine(`    ${(i + 1).toString().padStart(2, '0')}. ${green(code)}`)
+              })
+              terminal.writeLine('')
+              terminal.writeLine('  Scan the OTP URI in your authenticator app, then run:')
+              terminal.writeLine(cyan('  /settings 2fa enable <code>'))
+            } catch (error) {
+              terminal.writeLine(red(`✗ Setup failed: ${(error as Error).message}`))
+            }
+          } else if (action === 'enable') {
+            const code = args[1]
+            if (!code) {
+              terminal.writeLine(red('✗ Usage: /settings 2fa enable <code>'))
+              return
+            }
+            try {
+              await apiClient.post('/auth/settings/2fa/enable', { code })
+              terminal.writeLine(green('✓ 2FA enabled successfully!'))
+              terminal.writeLine(yellow('  Your account is now protected with two-factor authentication.'))
+            } catch (error) {
+              terminal.writeLine(red(`✗ Failed to enable 2FA: ${(error as Error).message}`))
+            }
+          } else if (action === 'disable') {
+            const password = args[1]
+            if (!password) {
+              terminal.writeLine(red('✗ Usage: /settings 2fa disable <password>'))
+              return
+            }
+            try {
+              await apiClient.post('/auth/settings/2fa/disable', { password })
+              terminal.writeLine(green('✓ 2FA disabled.'))
+            } catch (error) {
+              terminal.writeLine(red(`✗ Failed to disable 2FA: ${(error as Error).message}`))
+            }
+          } else {
+            terminal.writeLine(yellow('Usage: /settings 2fa setup | enable <code> | disable <password>'))
+          }
+          break
+        }
+
+        case 'verify-email': {
+          try {
+            await apiClient.post('/auth/resend-verification', {})
+            terminal.writeLine(green('✓ Verification email sent! Check your inbox.'))
+          } catch (error) {
+            const msg = (error as Error).message
+            if (msg.includes('already verified')) {
+              terminal.writeLine(yellow('✓ Your email is already verified.'))
+            } else {
+              terminal.writeLine(red(`✗ Failed to resend: ${msg}`))
+            }
+          }
+          break
+        }
+
+        case 'password': {
+          const [oldPass, newPass] = args
+          if (!oldPass || !newPass) {
+            terminal.writeLine(red('✗ Usage: /settings password <old_password> <new_password>'))
+            return
+          }
+          try {
+            await apiClient.post('/auth/settings/change-password', {
+              old_password: oldPass,
+              new_password: newPass,
+            })
+            terminal.writeLine(green('✓ Password changed successfully.'))
+          } catch (error) {
+            terminal.writeLine(red(`✗ Failed to change password: ${(error as Error).message}`))
+          }
+          break
+        }
+
+        default:
+          terminal.writeLine(red(`✗ Unknown settings command: ${subcommand}`))
+          terminal.writeLine(yellow('  Run /settings to see available commands.'))
+      }
+    },
+    [isAuthenticated, user, terminal]
+  )
+
   const handlePost = useCallback(
     async (content: string) => {
       if (!isAuthenticated || !user) {
         terminal.writeLine(red('✗ You must be logged in to post'))
+        return
+      }
+
+      // Frontend UX guard — backend enforces authoritatively
+      if (user.email && !user.email_verified) {
+        terminal.writeLine(red('✗ Please verify your email before posting.'))
+        terminal.writeLine(yellow('  /settings verify-email to resend the verification email'))
         return
       }
 
@@ -390,6 +578,9 @@ export function useHomeLogic() {
   const { executeCommand } = useTerminalCommands({
     onRegister: handleRegister,
     onLogin: handleLogin,
+    on2FA: handle2FA,
+    onForgot: handleForgot,
+    onSettings: handleSettings,
     onPost: handlePost,
     onFeed: handleFeed,
     onLike: handleLike,
@@ -404,27 +595,30 @@ export function useHomeLogic() {
       terminal.writeLine(yellow('Available commands:'))
       terminal.writeLine('')
       terminal.writeLine(cyan('Account:'))
-      terminal.writeLine('  /register <username> <password>  - Create new account')
-      terminal.writeLine('  /login <username> <password>     - Login to account')
+      terminal.writeLine('  /register <username> <email> <pass>  - Create new account')
+      terminal.writeLine('  /login <username> <password>         - Login to account')
+      terminal.writeLine('  /2fa <code>                          - Enter 2FA code after login')
+      terminal.writeLine('  /forgot <email>                      - Send password reset email')
+      terminal.writeLine('  /settings [subcommand]               - Manage account settings')
       terminal.writeLine('')
       terminal.writeLine(cyan('Social:'))
-      terminal.writeLine('  /post <content>                  - Create a new post')
-      terminal.writeLine('  /feed [discover]                 - Refresh feed or view popular posts')
-      terminal.writeLine('  /like <post_id>                  - Like a post')
-      terminal.writeLine('  /comment <post_id> <text>        - Comment on a post')
-      terminal.writeLine('  /show <post_id> [page]           - View comments on a post (paginated)')
-      terminal.writeLine('  /follow <username>               - Follow a user')
-      terminal.writeLine('  /unfollow <username>             - Unfollow a user')
+      terminal.writeLine('  /post <content>                      - Create a new post')
+      terminal.writeLine('  /feed [discover]                     - Refresh feed or view popular posts')
+      terminal.writeLine('  /like <post_id>                      - Like a post')
+      terminal.writeLine('  /comment <post_id> <text>            - Comment on a post')
+      terminal.writeLine('  /show <post_id> [page]               - View comments on a post (paginated)')
+      terminal.writeLine('  /follow <username>                   - Follow a user')
+      terminal.writeLine('  /unfollow <username>                 - Unfollow a user')
       terminal.writeLine('')
       terminal.writeLine(cyan('Progression:'))
-      terminal.writeLine('  /profile [username]              - View character sheet')
-      terminal.writeLine('  /stats                           - View your stats')
-      terminal.writeLine('  /levels                          - View level thresholds')
-      terminal.writeLine('  /unlocks                         - View feature unlocks')
+      terminal.writeLine('  /profile [username]                  - View character sheet')
+      terminal.writeLine('  /stats                               - View your stats')
+      terminal.writeLine('  /levels                              - View level thresholds')
+      terminal.writeLine('  /unlocks                             - View feature unlocks')
       terminal.writeLine('')
       terminal.writeLine(cyan('Utility:'))
-      terminal.writeLine('  /help                            - Show this help')
-      terminal.writeLine('  /clear                           - Clear terminal')
+      terminal.writeLine('  /help                                - Show this help')
+      terminal.writeLine('  /clear                               - Clear terminal')
     },
     onClear: terminal.clear,
   })
@@ -456,19 +650,28 @@ export function useHomeLogic() {
 
     if (isAuthenticated && user) {
       // Authenticated users - show XP bar if available
+      let feedStatusMessage = ''
+      if (isLoading) {
+        feedStatusMessage = cyan('Loading feed...')
+      } else if (posts.length > 0) {
+        feedStatusMessage = yellow(`Showing ${posts.length} posts:`)
+      } else {
+        feedStatusMessage = yellow('No posts in your feed yet.\n\nFollow users to see their posts or use /feed discover to explore!')
+      }
+
       const welcome = xpProgress
         ? [
             asciiWelcome,
             '',
             renderTerminalXPBar(xpProgress.current_level, xpProgress.total_xp, xpProgress.xp_for_next_level, xpProgress.progress_percent, cols),
             '',
-            posts.length > 0 ? yellow(`Showing ${posts.length} posts:`) : cyan('Loading feed...'),
+            feedStatusMessage,
             '',
           ].join('\r\n')
         : [
             asciiWelcome,
             '',
-            posts.length > 0 ? yellow(`Showing ${posts.length} posts:`) : cyan('Loading feed...'),
+            feedStatusMessage,
             '',
           ].join('\r\n')
 
@@ -479,10 +682,19 @@ export function useHomeLogic() {
       terminal.setContent(content)
       setHasShownWelcome(true)
     } else {
+      let feedStatusMessage = ''
+      if (isLoading) {
+        feedStatusMessage = cyan('Loading popular posts...')
+      } else if (posts.length > 0) {
+        feedStatusMessage = yellow(`Showing ${posts.length} popular posts:`)
+      } else {
+        feedStatusMessage = yellow('No posts to display.\n\nCreate an account to start posting!')
+      }
+
       const welcome = [
         asciiWelcome,
         '',
-        posts.length > 0 ? yellow(`Showing ${posts.length} popular posts:`) : cyan('Loading popular posts...'),
+        feedStatusMessage,
         '',
       ].join('\r\n')
 
@@ -494,7 +706,7 @@ export function useHomeLogic() {
       setHasShownWelcome(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user, posts, xpProgress, windowWidth, calculateTerminalCols, resizeKey])
+  }, [isAuthenticated, user, posts, isLoading, xpProgress, windowWidth, calculateTerminalCols, resizeKey])
 
   const handleCommand = useCallback(
     async (command: string, terminalCols: number = 80) => {

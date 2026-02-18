@@ -23,7 +23,7 @@ import type { LogoType } from '../utils/ascii-logo'
 
 export function Landing() {
   const { recentPosts, trendingPosts, isLoading, error, hasMore, loadMore, refresh } = usePublicFeed()
-  const { login, register, isAuthenticated } = useAuth()
+  const { login, register, forgotPassword, isAuthenticated } = useAuth()
   const [terminalOutput, setTerminalOutput] = useState<string>('')
   const [terminalCols, setTerminalCols] = useState<number>(80) // Reactive terminal width for rebuilding
   const terminalColsRef = useRef<number>(80) // Stores current terminal width
@@ -82,7 +82,7 @@ export function Landing() {
 
     // SYNOPSIS section
     lines.push(createSectionHeader('SYNOPSIS'))
-    lines.push(indentText(formatCommandSynopsis('/register', '<username> <password>')))
+    lines.push(indentText(formatCommandSynopsis('/register', '<username> <email> <password>')))
     lines.push(indentText(formatCommandSynopsis('/login', '<username> <password>')))
     lines.push(indentText(formatCommandSynopsis('/post', '<content>')))
     lines.push('')
@@ -154,7 +154,7 @@ export function Landing() {
     lines.push(createSectionHeader('COMMANDS'))
     lines.push('')
     lines.push(indentText(bold('Account Management')))
-    lines.push(indentText('/register <username> <password>    Create new account', 10))
+    lines.push(indentText('/register <username> <email> <password>  Create new account', 10))
     lines.push(indentText('/login <username> <password>       Login to account', 10))
     lines.push('')
     lines.push(indentText(bold('Social Actions (requires authentication)')))
@@ -196,9 +196,14 @@ export function Landing() {
 
       // Mask password in echoed command
       let displayCommand = command
-      if ((cmd === '/login' || cmd === '/register') && parts.length >= 3) {
+      if (cmd === '/login' && parts.length >= 3) {
         const maskedParts = [...parts]
         maskedParts[2] = '*'.repeat(parts[2].length)
+        displayCommand = maskedParts.join(' ')
+      } else if (cmd === '/register' && parts.length >= 4) {
+        // /register <username> <email> <password>  — password is index 3
+        const maskedParts = [...parts]
+        maskedParts[3] = '*'.repeat(parts[3].length)
         displayCommand = maskedParts.join(' ')
       }
 
@@ -211,8 +216,9 @@ export function Landing() {
             writeLine(yellow('Available commands:'))
             writeLine('')
             writeLine(cyan('Account:'))
-            writeLine('  /register <username> <password>  - Create new account')
-            writeLine('  /login <username> <password>     - Login to account')
+            writeLine('  /register <username> <email> <pass>  - Create new account')
+            writeLine('  /login <username> <password>         - Login to account')
+            writeLine('  /forgot <email>                      - Send password reset email')
             writeLine('')
             writeLine(cyan('Information (public):'))
             writeLine('  /help                            - Show this help')
@@ -229,14 +235,15 @@ export function Landing() {
             break
 
           case '/register':
-            if (parts.length < 3) {
-              writeLine(red('✗ Usage: /register <username> <password>'))
+            if (parts.length < 4) {
+              writeLine(red('✗ Usage: /register <username> <email> <password>'))
               return
             }
             try {
-              await register(parts[1], parts[2])
+              await register(parts[1], parts[2], parts[3])
               writeLine(green(`✓ Account created: ${parts[1]}`))
-              writeLine(yellow('You are now logged in! Redirecting to feed...'))
+              writeLine(yellow('Check your email to verify before posting.'))
+              writeLine(yellow('Redirecting to feed...'))
               // Auth state change will trigger transition to Home
             } catch (error) {
               writeLine(red(`✗ Failed to register: ${(error as Error).message}`))
@@ -306,6 +313,19 @@ export function Landing() {
             }
             break
 
+          case '/forgot':
+            if (parts.length < 2) {
+              writeLine(red('✗ Usage: /forgot <email>'))
+              return
+            }
+            try {
+              await forgotPassword(parts[1])
+            } catch {
+              // ignore errors — always show success to avoid enumeration
+            }
+            writeLine(green('✓ If an account with that email exists, a reset link has been sent.'))
+            break
+
           // Auth-gated commands
           case '/post':
           case '/like':
@@ -315,8 +335,8 @@ export function Landing() {
             writeLine(red('✗ Authentication required. Use /login or /register to continue.'))
             writeLine('')
             writeLine(yellow('Commands:'))
-            writeLine('  /register <username> <password>  Create new account')
-            writeLine('  /login <username> <password>     Login to existing account')
+            writeLine('  /register <username> <email> <password>  Create new account')
+            writeLine('  /login <username> <password>             Login to existing account')
             break
 
           case '/clear':
@@ -331,14 +351,8 @@ export function Landing() {
         writeLine(red(`✗ Error: ${(error as Error).message}`))
       }
     },
-    [writeLine, register, login, loadMore, refresh]
+    [writeLine, register, login, forgotPassword, loadMore, refresh]
   )
-
-  // If authenticated, this component should not be shown
-  // (App.tsx will handle the transition to Home)
-  if (isAuthenticated) {
-    return null
-  }
 
   return (
     <div className="landing-page">

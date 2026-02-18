@@ -16,6 +16,9 @@ export interface User {
   banner_url: string | null
   bio: string | null
   theme_preference: string
+  email: string | null
+  email_verified: number  // 0 or 1 (SQLite boolean)
+  totp_enabled: number    // 0 or 1 (SQLite boolean)
 }
 
 export interface Post {
@@ -134,6 +137,7 @@ export interface CommentsResponse {
 
 export interface RegisterRequest {
   username: string
+  email: string
   password: string
 }
 
@@ -240,6 +244,42 @@ export interface ModerationQueueResponse {
     total_pages: number
     has_more: boolean
   }
+}
+
+// ==================== Auth Security ====================
+
+export interface TOTPChallengeResponse {
+  requires_2fa: true
+  totp_challenge_token: string
+}
+
+export interface TOTPSetupResponse {
+  secret: string
+  uri: string
+  recovery_codes: string[]
+}
+
+export interface VerifyEmailRequest {
+  token: string
+}
+
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  token: string
+  new_password: string
+}
+
+export interface VerifyTOTPRequest {
+  totp_challenge_token: string
+  code: string
+}
+
+export interface ChangePasswordRequest {
+  old_password: string
+  new_password: string
 }
 
 // ==================== Error Response ====================

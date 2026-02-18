@@ -33,6 +33,7 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 ENVIRONMENT = "production"
 PUBLIC_URL = "https://rpg.apogeeforge.com"  # Required: Your production domain URL
 MODERATION_ENABLED = "true"  # Enable content moderation (set to "false" to disable)
+FROM_EMAIL = "noreply@rpg.apogeeforge.com"  # Sender address for transactional emails
 
 # Observability configuration
 [observability.logs]
@@ -48,6 +49,10 @@ invocation_logs = true
 #
 # - GOOGLE_VISION_API_KEY (optional) - Set with: wrangler secret put GOOGLE_VISION_API_KEY
 #   Required for image moderation. Get from: https://console.cloud.google.com/apis/credentials
+#
+# - RESEND_API_KEY (optional) - Set with: wrangler secret put RESEND_API_KEY
+#   Required for sending verification and password reset emails. Get from: https://resend.com/api-keys
+#   Without this key, email content is logged to wrangler dev console instead of sent.
 
 # Production environment (uses same bindings as default)
 [env.production]
@@ -72,6 +77,7 @@ id = "8e59389f021b4ea48f3e71333b1ac39e"
 [env.production.vars]
 ENVIRONMENT = "production"
 MODERATION_ENABLED = "true"
+FROM_EMAIL = "noreply@rpg.apogeeforge.com"
 
 [env.production.observability.logs]
 enabled = true

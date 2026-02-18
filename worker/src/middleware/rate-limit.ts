@@ -6,13 +6,18 @@ import { HonoEnv } from '../lib/types'
 import { RATE_LIMITS } from '../lib/constants'
 
 type ActionType = 'post' | 'like' | 'comment' | 'register' | 'login'
+  | 'email_verify' | 'password_reset' | 'totp_verify' | 'resend_verify'
 
 const ACTION_LIMITS: Record<ActionType, number> = {
   post: RATE_LIMITS.POSTS_PER_HOUR,
   like: RATE_LIMITS.LIKES_PER_HOUR,
   comment: RATE_LIMITS.COMMENTS_PER_HOUR,
-  register: 5,  // 5 registration attempts per hour
-  login: 10,    // 10 login attempts per hour
+  register: 5,         // 5 registration attempts per hour
+  login: 10,           // 10 login attempts per hour
+  email_verify: 10,    // 10 verification attempts per hour
+  password_reset: 3,   // strict — prevent email flooding
+  totp_verify: 5,      // brute-force protection
+  resend_verify: 2,    // 2 resends per hour
 }
 
 export function rateLimiter(action: ActionType, requireAuth: boolean = true) {

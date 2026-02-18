@@ -136,6 +136,19 @@ interactions.post('/posts/:id/comments', authMiddleware, rateLimiter('comment'),
   }
 
   try {
+    const db = createDatabaseClient(c.env)
+
+    // Email verification gate — legacy users with email=null bypass; only block email set but unverified
+    const emailCheck = await db.queryOne<{ email_verified: number; email: string | null }>(
+      'SELECT email_verified, email FROM users WHERE id = ?', userId
+    )
+    if (emailCheck?.email && !emailCheck.email_verified) {
+      return c.json({
+        error: 'EmailNotVerified',
+        message: 'Verify your email before commenting. Use /settings verify-email.',
+      }, 403)
+    }
+
     const body = await c.req.json<{ content: string }>()
     const { content } = body
 
@@ -147,7 +160,6 @@ interactions.post('/posts/:id/comments', authMiddleware, rateLimiter('comment'),
       return c.json({ error: 'BadRequest', message: 'Comment exceeds 500 character limit' }, 400)
     }
 
-    const db = createDatabaseClient(c.env)
     const commentModel = new CommentModel(db)
     const postModel = new PostModel(db)
     const xpService = new XPService(db)
