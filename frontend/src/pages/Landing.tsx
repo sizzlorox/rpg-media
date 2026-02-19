@@ -15,11 +15,35 @@ import {
   getManPageDate,
 } from '../utils/man-page-formatter'
 import { createDoubleLine } from '../utils/ascii-art'
-import { green, yellow, red, cyan, bold } from '../utils/ansi-colors'
+import { green, yellow, red, cyan } from '../utils/ansi-colors'
 import { getResponsiveWidth } from '../utils/responsive-width'
 import { getResponsiveConfig } from '../utils/terminal-responsive'
 import { renderWelcomeMessage } from '../utils/welcome-message'
 import type { LogoType } from '../utils/ascii-logo'
+
+function getHelpLines(): string[] {
+  return [
+    yellow('Available commands:'),
+    '',
+    cyan('Account:'),
+    '  /register <username> <email> <pass>  - Create new account',
+    '  /login <username> <password>         - Login to account',
+    '  /forgot <email>                      - Send password reset email',
+    '',
+    cyan('Information (public):'),
+    '  /help                            - Show this help',
+    '  /levels                          - View level thresholds',
+    '  /profile <username>              - View user profile',
+    '  /feed more                       - Load more posts',
+    '',
+    cyan('Social Actions (requires authentication):'),
+    '  /post <content>                  - Create a post',
+    '  /like <post_id>                  - Like a post',
+    '  /comment <post_id> <text>        - Comment on a post',
+    '',
+    yellow('Login or register to unlock social features!'),
+  ]
+}
 
 export function Landing() {
   const { recentPosts, trendingPosts, isLoading, error, hasMore, loadMore, refresh } = usePublicFeed()
@@ -157,23 +181,10 @@ export function Landing() {
       lines.push('')
     }
 
-    // COMMANDS section
+    // COMMANDS section — same output as /help for a single source of truth
     lines.push(createSectionHeader('COMMANDS'))
     lines.push('')
-    lines.push(indentText(bold('Account Management')))
-    lines.push(indentText('/register <username> <email> <password>  Create new account', 10))
-    lines.push(indentText('/login <username> <password>       Login to account', 10))
-    lines.push('')
-    lines.push(indentText(bold('Social Actions (requires authentication)')))
-    lines.push(indentText('/post <content>                    Create a post (+10 XP)', 10))
-    lines.push(indentText('/like <post_id>                    Like a post (+1 XP)', 10))
-    lines.push(indentText('/comment <post_id> <text>          Comment on post (+5 XP)', 10))
-    lines.push('')
-    lines.push(indentText(bold('Information')))
-    lines.push(indentText('/help                              Show all commands', 10))
-    lines.push(indentText('/levels                            View level progression', 10))
-    lines.push(indentText('/profile <username>                View user profile', 10))
-    lines.push(indentText('/feed more                         Load more posts', 10))
+    getHelpLines().forEach(line => lines.push(indentText(line)))
     lines.push('')
 
     // SEE ALSO section
@@ -220,25 +231,7 @@ export function Landing() {
         // Handle public commands
         switch (cmd) {
           case '/help':
-            writeLine(yellow('Available commands:'))
-            writeLine('')
-            writeLine(cyan('Account:'))
-            writeLine('  /register <username> <email> <pass>  - Create new account')
-            writeLine('  /login <username> <password>         - Login to account')
-            writeLine('  /forgot <email>                      - Send password reset email')
-            writeLine('')
-            writeLine(cyan('Information (public):'))
-            writeLine('  /help                            - Show this help')
-            writeLine('  /levels                          - View level thresholds')
-            writeLine('  /profile <username>              - View user profile')
-            writeLine('  /feed more                       - Load more posts')
-            writeLine('')
-            writeLine(cyan('Social Actions (requires authentication):'))
-            writeLine('  /post <content>                  - Create a post')
-            writeLine('  /like <post_id>                  - Like a post')
-            writeLine('  /comment <post_id> <text>        - Comment on a post')
-            writeLine('')
-            writeLine(yellow('Login or register to unlock social features!'))
+            getHelpLines().forEach(line => writeLine(line))
             break
 
           case '/register':
