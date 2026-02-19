@@ -64,9 +64,6 @@ export class FeedService {
       params.push(channel)
     }
 
-    // Hidden posts filter
-    conditions.push('p.is_hidden = 0')
-
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
     if (sort === 'top') {
@@ -102,7 +99,7 @@ export class FeedService {
     channel?: Channel,
     sort: FeedSortMode = 'trending'
   ): Promise<{ posts: PostWithAuthor[]; has_more: boolean }> {
-    const conditions: string[] = ['p.is_hidden = 0']
+    const conditions: string[] = []
     const params: (string | number)[] = []
 
     if (channel) {
