@@ -49,8 +49,9 @@ export function renderManPagePost(
 
   const lines: string[] = []
 
-  // Header line with author, level, timestamp, and optional trending badge
-  const authorInfo = `${bold(`@${post.author.username}`)} ${cyan(`[Lvl ${post.author.level}]`)} • ${yellow(formatTimestamp(post.created_at))}`
+  // Header line with author, level, channel, timestamp, and optional trending badge
+  const channelBadge = post.channel ? ` ${cyan(`#${post.channel}`)}` : ''
+  const authorInfo = `${bold(`@${post.author.username}`)} ${cyan(`[Lvl ${post.author.level}]`)}${channelBadge} • ${yellow(formatTimestamp(post.created_at))}`
   const trendingBadge = showRank ? `  ${createTrendingBadge(showRank)}` : ''
   lines.push(`     ${authorInfo}${trendingBadge}`)
 

@@ -1,6 +1,7 @@
 // Terminal command parser and handler
 
 import { useCallback } from 'react'
+import type { Channel, FeedSortMode } from '../../../shared/types'
 
 export interface TerminalCommand {
   name: string
@@ -15,11 +16,11 @@ interface UseTerminalCommandsOptions {
   on2FA?: (code: string) => Promise<void>
   onForgot?: (email: string) => Promise<void>
   onSettings?: (subcommand: string | undefined, args: string[]) => Promise<void>
-  onPost?: (content: string) => Promise<void>
+  onPost?: (content: string, channel?: Channel) => Promise<void>
   onPostWithAttachment?: (content: string) => Promise<void>
   onUploadAvatar?: () => Promise<void>
   onUploadBanner?: () => Promise<void>
-  onFeed?: (subcommand?: string) => Promise<void>
+  onFeed?: (channel?: Channel, sort?: FeedSortMode, followingOnly?: boolean, page?: number) => Promise<void>
   onProfile?: (username?: string) => Promise<void>
   onLike?: (postId: string) => Promise<void>
   onComment?: (postId: string, content: string) => Promise<void>
@@ -29,6 +30,7 @@ interface UseTerminalCommandsOptions {
   onStats?: () => Promise<void>
   onLevels?: () => Promise<void>
   onUnlocks?: () => Promise<void>
+  onLogout?: () => Promise<void>
   onHelp?: () => void
   onClear?: () => void
 }
@@ -117,45 +119,85 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
       name: '/post',
       handler: async (args) => {
         if (args.length === 0) {
-          return 'Usage: /post <content> [--attach]'
+          return 'Usage: /post <content> [--channel <name>] [--attach]'
         }
 
-        // Check for --attach flag
+        // Parse flags: --attach and --channel <name>
         const hasAttach = args.includes('--attach')
-        const content = args.filter(a => a !== '--attach').join(' ')
+        let channel: Channel | undefined
+        const cleanArgs: string[] = []
+
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '--attach') continue
+          if (args[i] === '--channel') {
+            if (i + 1 < args.length) {
+              channel = args[++i].replace(/^#/, '') as Channel
+            }
+            continue
+          }
+          cleanArgs.push(args[i])
+        }
+
+        const content = cleanArgs.join(' ')
 
         if (!content.trim()) {
-          return 'Usage: /post <content> [--attach]'
+          return 'Usage: /post <content> [--channel <name>] [--attach]'
         }
 
         if (hasAttach) {
           if (options.onPostWithAttachment) {
             await options.onPostWithAttachment(content)
-            return '' // Callback handles output
+            return ''
           }
           return '✗ Image uploads not configured'
         } else {
           if (options.onPost) {
-            await options.onPost(content)
-            return '' // Callback handles output
+            await options.onPost(content, channel)
+            return ''
           }
           return '✓ Post created! +10 XP'
         }
       },
-      description: 'Create a new post (optionally attach image with --attach)',
-      usage: '/post <content> [--attach]',
+      description: 'Create a new post (optionally in a channel with --channel <name>)',
+      usage: '/post <content> [--channel <name>] [--attach]',
     },
     {
       name: '/feed',
       handler: async (args) => {
-        const subcommand = args[0] // Can be 'discover' or undefined
-        if (options.onFeed) {
-          await options.onFeed(subcommand)
+        // Parse: /feed [#channel|discover] [--trending|--top|--new] [--following] [--page N]
+        let channel: Channel | undefined
+        let sort: FeedSortMode | undefined
+        let followingOnly = false
+        let page = 1
+
+        for (let i = 0; i < args.length; i++) {
+          const arg = args[i]
+          if (arg === 'discover') {
+            // backward compat alias — treat as trending sort, no channel
+            sort = sort || 'trending'
+          } else if (arg.startsWith('#')) {
+            channel = arg.slice(1) as Channel
+          } else if (arg === '--trending') {
+            sort = 'trending'
+          } else if (arg === '--top') {
+            sort = 'top'
+          } else if (arg === '--new') {
+            sort = 'new'
+          } else if (arg === '--following') {
+            followingOnly = true
+          } else if (arg === '--page') {
+            const n = parseInt(args[i + 1], 10)
+            if (!isNaN(n) && n >= 1) { page = n; i++ }
+          }
         }
-        return subcommand === 'discover' ? 'Loading popular posts...' : 'Loading feed...'
+
+        if (options.onFeed) {
+          await options.onFeed(channel, sort, followingOnly, page)
+        }
+        return ''
       },
-      description: 'View your home feed or discover popular posts',
-      usage: '/feed [discover]',
+      description: 'View feed, optionally filtered by channel and sort mode',
+      usage: '/feed [#channel] [--trending|--top|--new] [--following] [--page N]',
     },
     {
       name: '/profile',
@@ -308,6 +350,18 @@ export function useTerminalCommands(options: UseTerminalCommandsOptions = {}) {
       },
       description: 'Upload profile banner (level 7+)',
       usage: '/banner',
+    },
+    {
+      name: '/logout',
+      handler: async () => {
+        if (options.onLogout) {
+          await options.onLogout()
+          return ''
+        }
+        return '✗ Not logged in'
+      },
+      description: 'Logout of your account',
+      usage: '/logout',
     },
     {
       name: '/help',

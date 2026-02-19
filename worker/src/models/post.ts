@@ -34,8 +34,8 @@ export class PostModel {
 
     await this.db.exec(
       `INSERT INTO posts (
-        id, user_id, content, char_count, media_url, created_at, updated_at, is_pinned
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, user_id, content, char_count, media_url, created_at, updated_at, is_pinned, channel
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       post.id,
       post.user_id,
       post.content,
@@ -43,7 +43,8 @@ export class PostModel {
       post.media_url,
       now,
       now,
-      post.is_pinned || 0
+      post.is_pinned || 0,
+      post.channel || 'general'
     )
 
     const created = await this.findById(post.id)

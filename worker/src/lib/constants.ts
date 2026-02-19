@@ -1,6 +1,16 @@
 // XP and Level Constants for Social Forge Platform
 // Per spec FR-015 and FR-016
 
+import { VALID_CHANNELS, type Channel } from '../../../shared/types'
+
+export function validateChannel(raw?: string): Channel {
+  const normalized = (raw || 'general').toLowerCase().replace(/^#/, '') as Channel
+  if (!VALID_CHANNELS.includes(normalized)) {
+    throw new Error(`Invalid channel: "${raw}". Valid channels: ${VALID_CHANNELS.join(', ')}`)
+  }
+  return normalized
+}
+
 // XP award values for each action (FR-015)
 export const XP_VALUES = {
   CREATE_POST: 10,

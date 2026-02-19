@@ -39,7 +39,8 @@ export function renderTerminalPost(
   const lines: string[] = []
 
   // Header
-  lines.push(`${green(`@${post.author.username}`)} ${cyan(`[Lvl ${post.author.level}]`)} • ${yellow(formatTimestamp(post.created_at))}`)
+  const channelBadge = post.channel ? ` ${cyan(`#${post.channel}`)}` : ''
+  lines.push(`${green(`@${post.author.username}`)} ${cyan(`[Lvl ${post.author.level}]`)}${channelBadge} • ${yellow(formatTimestamp(post.created_at))}`)
   lines.push(magenta(`ID: ${post.id.slice(0, 8)}`))
   lines.push('')
 

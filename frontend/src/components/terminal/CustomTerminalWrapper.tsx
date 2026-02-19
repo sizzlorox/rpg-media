@@ -245,7 +245,7 @@ class CustomTerminalAPI {
     line.cells = [...this.currentLineCells]
     this.scrollBuffer.append(line)
 
-    // Don't auto-scroll - let user control scroll position
+    this.shouldAutoScrollAfterRender = true  // scroll to input line on each keystroke
   }
 }
 

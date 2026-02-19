@@ -13,7 +13,7 @@ import { renderTerminalPost } from '../components/TerminalPost'
 import { renderTerminalXPBar } from '../components/TerminalXPBar'
 import { renderLevelUpAnimation, getUnlockedFeatures } from '../components/LevelUpAnimation'
 import { renderPaginatedCommentsView } from '../components/TerminalComment'
-import type { CreatePostRequest, UserProfile } from '../../../shared/types'
+import type { CreatePostRequest, UserProfile, Channel, FeedSortMode } from '../../../shared/types'
 
 interface PostResponse {
   xp_awarded: number
@@ -56,7 +56,7 @@ interface FollowResponse {
 }
 
 export function useHomeLogic() {
-  const { user, isAuthenticated, login, register, verify2fa, forgotPassword, pendingTotpToken } = useAuth()
+  const { user, isAuthenticated, login, register, verify2fa, forgotPassword, logout, pendingTotpToken } = useAuth()
   const { posts, isLoading, loadDiscoveryFeed, loadHomeFeed } = useFeed()
   const { xpProgress, loadXPProgress, refreshCharacter } = useCharacter()
   const { pagination, loadComments, lastViewedPostId } = useComments()
@@ -323,7 +323,7 @@ export function useHomeLogic() {
   )
 
   const handlePost = useCallback(
-    async (content: string) => {
+    async (content: string, channel?: Channel) => {
       if (!isAuthenticated || !user) {
         terminal.writeLine(red('✗ You must be logged in to post'))
         return
@@ -337,8 +337,9 @@ export function useHomeLogic() {
       }
 
       try {
-        const result = await apiClient.post<PostResponse>('/posts', { content } as CreatePostRequest)
-        terminal.writeLine(green('✓ Post created!'))
+        const postChannel = channel || 'general'
+        const result = await apiClient.post<PostResponse>('/posts', { content, channel: postChannel } as CreatePostRequest)
+        terminal.writeLine(green(`✓ Posted to #${postChannel}!`))
         terminal.writeLine(yellow(`+${result.xp_awarded} XP`))
 
         if (result.level_up) {
@@ -544,36 +545,70 @@ export function useHomeLogic() {
     }
   }, [user, terminal])
 
-  const handleFeed = useCallback(async (subcommand?: string) => {
-    if (subcommand === 'discover') {
-      terminal.writeLine(cyan('Loading popular posts...'))
-      const loadedPosts = await loadDiscoveryFeed()
-      if (loadedPosts.length === 0) terminal.writeLine(yellow('No posts to display'))
-      else {
-        terminal.writeLine('')
-        terminal.writeLine(green(`Showing ${loadedPosts.length} popular posts:`))
-        terminal.writeLine('')
-        loadedPosts.forEach((post) => terminal.writeLine(renderTerminalPost(post, true, terminal.terminalCols.current)))
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout()
+      terminal.writeLine(green('✓ Logged out successfully.'))
+      await loadDiscoveryFeed()
+    } catch (error) {
+      terminal.writeLine(red(`✗ Failed to logout: ${(error as Error).message}`))
+    }
+  }, [logout, terminal, loadDiscoveryFeed])
+
+  const handleFeed = useCallback(
+    async (channel?: Channel, sort?: FeedSortMode, followingOnly?: boolean, page?: number) => {
+      const pageSize = 30
+      const pageNum = page || 1
+      const offset = (pageNum - 1) * pageSize
+
+      // Build header label
+      const channelLabel = channel ? `#${channel}` : 'home'
+      const sortLabel = sort || (channel ? 'new' : isAuthenticated ? 'new' : 'trending')
+      const followLabel = followingOnly ? ' [following only]' : ''
+      const pageLabel = pageNum > 1 ? ` — page ${pageNum}` : ''
+
+      terminal.writeLine(cyan(`Loading ${channelLabel}${followLabel} [${sortLabel}]${pageLabel}...`))
+
+      let feedResult: { posts: import('../../../shared/types').PostWithAuthor[]; has_more: boolean }
+
+      if (channel) {
+        // Channel specified: always use discover endpoint (public board)
+        feedResult = await loadDiscoveryFeed(offset, channel, sort || 'new', followingOnly)
+      } else if (isAuthenticated) {
+        // No channel, authenticated: home feed
+        feedResult = await loadHomeFeed(offset, undefined, sort)
+      } else {
+        // No channel, unauthenticated: discovery feed
+        feedResult = await loadDiscoveryFeed(offset, undefined, sort || 'trending')
       }
-    } else {
-      terminal.writeLine(cyan('Loading feed...'))
-      const loadedPosts = isAuthenticated ? await loadHomeFeed() : await loadDiscoveryFeed()
+
+      const { posts: loadedPosts, has_more } = feedResult
 
       if (loadedPosts.length === 0) {
         terminal.writeLine(yellow('No posts to display'))
-        if (isAuthenticated) {
+        if (isAuthenticated && !channel) {
           terminal.writeLine('')
           terminal.writeLine('Follow some users to see their posts in your feed!')
-          terminal.writeLine('Or use /feed discover to see popular posts')
+          terminal.writeLine(`Or try: /feed #general  to browse all posts`)
         }
       } else {
         terminal.writeLine('')
-        terminal.writeLine(green(`Showing ${loadedPosts.length} posts:`))
+        const headerParts = [`${channelLabel}${followLabel}`, `${loadedPosts.length} posts`, `[${sortLabel}]`]
+        if (pageNum > 1) headerParts.push(`page ${pageNum}`)
+        terminal.writeLine(green(headerParts.join(' — ') + ':'))
         terminal.writeLine('')
-        loadedPosts.forEach((post) => terminal.writeLine(renderTerminalPost(post, true, terminal.terminalCols.current)))
+        loadedPosts.forEach((post) =>
+          terminal.writeLine(renderTerminalPost(post, true, terminal.terminalCols.current))
+        )
+        // Hint for more pages
+        if (has_more) {
+          terminal.writeLine('')
+          terminal.writeLine(yellow(`  use --page ${pageNum + 1} to see more`))
+        }
       }
-    }
-  }, [isAuthenticated, loadHomeFeed, loadDiscoveryFeed, terminal])
+    },
+    [isAuthenticated, loadHomeFeed, loadDiscoveryFeed, terminal]
+  )
 
   const { executeCommand } = useTerminalCommands({
     onRegister: handleRegister,
@@ -591,6 +626,7 @@ export function useHomeLogic() {
     onLevels: handleLevels,
     onProfile: handleProfile,
     onUnlocks: handleUnlocks,
+    onLogout: handleLogout,
     onHelp: () => {
       terminal.writeLine(yellow('Available commands:'))
       terminal.writeLine('')
@@ -600,10 +636,11 @@ export function useHomeLogic() {
       terminal.writeLine('  /2fa <code>                          - Enter 2FA code after login')
       terminal.writeLine('  /forgot <email>                      - Send password reset email')
       terminal.writeLine('  /settings [subcommand]               - Manage account settings')
+      terminal.writeLine('  /logout                              - Logout of your account')
       terminal.writeLine('')
       terminal.writeLine(cyan('Social:'))
-      terminal.writeLine('  /post <content>                      - Create a new post')
-      terminal.writeLine('  /feed [discover]                     - Refresh feed or view popular posts')
+      terminal.writeLine('  /post <content> [--channel <name>]   - Create a new post (default: #general)')
+      terminal.writeLine('  /feed [#channel] [--trending|--top|--new] [--following] [--page N]')
       terminal.writeLine('  /like <post_id>                      - Like a post')
       terminal.writeLine('  /comment <post_id> <text>            - Comment on a post')
       terminal.writeLine('  /show <post_id> [page]               - View comments on a post (paginated)')
@@ -615,6 +652,9 @@ export function useHomeLogic() {
       terminal.writeLine('  /stats                               - View your stats')
       terminal.writeLine('  /levels                              - View level thresholds')
       terminal.writeLine('  /unlocks                             - View feature unlocks')
+      terminal.writeLine('')
+      terminal.writeLine(cyan('Channels:'))
+      terminal.writeLine('  general  dev  quest  lore  debug  signal  meta  offtopic')
       terminal.writeLine('')
       terminal.writeLine(cyan('Utility:'))
       terminal.writeLine('  /help                                - Show this help')

@@ -9,7 +9,7 @@ import { authMiddleware } from '../middleware/auth'
 import { rateLimiter } from '../middleware/rate-limit'
 import { sanitizeError } from '../lib/error-sanitizer'
 import { CreatePostRequest } from '../../../shared/types'
-import { getCharacterLimit, canAccessFeature, XP_VALUES } from '../lib/constants'
+import { getCharacterLimit, canAccessFeature, XP_VALUES, validateChannel } from '../lib/constants'
 import { trackEvent } from '../lib/logger'
 import { ContentModerationService } from '../services/content-moderation'
 
@@ -26,10 +26,17 @@ posts.post('/', authMiddleware, rateLimiter('post'), async (c) => {
 
   try {
     const body = await c.req.json<CreatePostRequest>()
-    const { content, media_url, is_pinned } = body
+    const { content, media_url, is_pinned, channel: rawChannel } = body
 
     if (!content || content.trim().length === 0) {
       return c.json({ error: 'BadRequest', message: 'Content is required' }, 400)
+    }
+
+    let channel: string
+    try {
+      channel = validateChannel(rawChannel)
+    } catch (e) {
+      return c.json({ error: 'BadRequest', message: (e as Error).message }, 400)
     }
 
     // Check character limit based on level
@@ -104,6 +111,7 @@ posts.post('/', authMiddleware, rateLimiter('post'), async (c) => {
       media_url: media_url || null,
       is_pinned: is_pinned ? 1 : 0,
       is_hidden: isHidden,
+      channel: channel as import('../../../shared/types').Channel,
     })
 
     // If flagged, create moderation flag for admin review

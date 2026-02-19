@@ -2,6 +2,13 @@
 // Used by both worker (backend) and frontend
 // Mirrors database schema with exact type mappings
 
+// ==================== Channels ====================
+
+export const VALID_CHANNELS = ['general', 'dev', 'quest', 'lore', 'debug', 'signal', 'meta', 'offtopic'] as const
+export type Channel = typeof VALID_CHANNELS[number]
+
+export type FeedSortMode = 'new' | 'top' | 'trending'
+
 // ==================== Database Models ====================
 
 export interface User {
@@ -31,6 +38,7 @@ export interface Post {
   updated_at: number
   is_pinned: number  // 0 or 1 (SQLite boolean)
   is_hidden: number  // 0 or 1 (SQLite boolean) - hidden posts pending moderation
+  channel: Channel
 }
 
 export interface Like {
@@ -150,6 +158,7 @@ export interface CreatePostRequest {
   content: string
   media_url?: string
   is_pinned?: boolean
+  channel?: Channel
 }
 
 export interface CreatePostResponse {
