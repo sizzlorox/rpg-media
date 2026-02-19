@@ -245,7 +245,12 @@ class CustomTerminalAPI {
     line.cells = [...this.currentLineCells]
     this.scrollBuffer.append(line)
 
-    this.shouldAutoScrollAfterRender = true  // scroll to input line on each keystroke
+    // Only auto-scroll if the user is already at (or near) the bottom.
+    // This prevents the cursor blink from yanking the viewport back down
+    // while the user is scrolled up to read content.
+    if (this.isAtBottom()) {
+      this.shouldAutoScrollAfterRender = true
+    }
   }
 }
 
