@@ -40,6 +40,9 @@ FROM_EMAIL = "noreply@rpg.apogeeforge.com"  # Sender address for transactional e
 enabled = true
 invocation_logs = true
 
+[observability.traces]
+enabled = true
+
 # Secrets (set via: wrangler secret put <NAME>)
 # - JWT_SECRET (required) - Set with: wrangler secret put JWT_SECRET
 #   This is REQUIRED for authentication. Generate a strong secret with: openssl rand -base64 32
@@ -82,3 +85,6 @@ FROM_EMAIL = "noreply@rpg.apogeeforge.com"
 [env.production.observability.logs]
 enabled = true
 invocation_logs = true
+
+[env.production.observability.traces]
+enabled = true

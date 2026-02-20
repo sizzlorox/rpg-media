@@ -107,7 +107,7 @@ export class FeedService {
       params.push(channel)
     }
 
-    const whereClause = `WHERE ${conditions.join(' AND ')}`
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
     if (sort === 'new') {
       const posts = await this.db.query<Post>(
