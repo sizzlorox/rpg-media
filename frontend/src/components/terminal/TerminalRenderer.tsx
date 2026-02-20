@@ -12,6 +12,7 @@ interface TerminalRendererProps {
   startLineNumber: number // Absolute line number of first visible line
   onImageLoadStart?: (urls: string[]) => void
   onImageLoadComplete?: (url: string, height?: number) => void
+  onUrlClick?: (url: string) => void
 }
 
 /**
@@ -23,7 +24,8 @@ export const TerminalRenderer: React.FC<TerminalRendererProps> = memo(({
   charWidth,
   startLineNumber: _startLineNumber,
   onImageLoadStart,
-  onImageLoadComplete
+  onImageLoadComplete,
+  onUrlClick
 }) => {
   return (
     <div className="terminal-lines">
@@ -36,6 +38,7 @@ export const TerminalRenderer: React.FC<TerminalRendererProps> = memo(({
           absoluteLineNumber={line.metadata.lineNumber}
           onImageLoadStart={onImageLoadStart}
           onImageLoadComplete={onImageLoadComplete}
+          onUrlClick={onUrlClick}
         />
       ))}
     </div>
@@ -43,6 +46,58 @@ export const TerminalRenderer: React.FC<TerminalRendererProps> = memo(({
 })
 
 TerminalRenderer.displayName = 'TerminalRenderer'
+
+// URL pattern: matches http://, https://, ftp://, and bare www. URLs
+const URL_REGEX = /(https?:\/\/|ftp:\/\/|www\.)[^\s<>"'\u0000-\u001f]+/g
+
+interface CellSegment {
+  type: 'text' | 'url'
+  cells: TerminalCell[]
+  url?: string // normalized URL for opening (www. -> https://www.)
+}
+
+/**
+ * Groups an array of cells into text and URL segments.
+ * Joins cell characters, finds URL matches, then maps back to cell slices.
+ */
+function groupCellsIntoSegments(cells: TerminalCell[]): CellSegment[] {
+  const text = cells.map(c => c.char).join('')
+
+  // Fast path: no URL-like content
+  if (!text.includes('://') && !text.includes('www.')) {
+    return [{ type: 'text', cells }]
+  }
+
+  const segments: CellSegment[] = []
+  let lastIndex = 0
+
+  for (const match of text.matchAll(URL_REGEX)) {
+    const matchIndex = match.index!
+    const matchEnd = matchIndex + match[0].length
+
+    if (matchIndex > lastIndex) {
+      segments.push({ type: 'text', cells: cells.slice(lastIndex, matchIndex) })
+    }
+
+    // Normalize bare www. links to https://
+    const rawUrl = match[0]
+    const normalizedUrl = rawUrl.startsWith('www.') ? `https://${rawUrl}` : rawUrl
+
+    segments.push({
+      type: 'url',
+      cells: cells.slice(matchIndex, matchEnd),
+      url: normalizedUrl
+    })
+
+    lastIndex = matchEnd
+  }
+
+  if (lastIndex < cells.length) {
+    segments.push({ type: 'text', cells: cells.slice(lastIndex) })
+  }
+
+  return segments.length > 0 ? segments : [{ type: 'text', cells }]
+}
 
 /**
  * Renders a single terminal line with formatted cells and optional inline image
@@ -54,16 +109,20 @@ interface TerminalLineProps {
   absoluteLineNumber: number
   onImageLoadStart?: (urls: string[]) => void
   onImageLoadComplete?: (url: string, height?: number) => void
+  onUrlClick?: (url: string) => void
 }
 
 const TerminalLineComponent: React.FC<TerminalLineProps> = memo(({
   line,
   lineHeight,
   onImageLoadStart,
-  onImageLoadComplete
+  onImageLoadComplete,
+  onUrlClick
 }) => {
   // If line has an image, don't render the [Image] placeholder text
   const shouldRenderCells = !line.image || line.cells.map(c => c.char).join('').trim() !== '[Image]'
+
+  const segments = shouldRenderCells ? groupCellsIntoSegments(line.cells) : []
 
   return (
     <div
@@ -73,9 +132,31 @@ const TerminalLineComponent: React.FC<TerminalLineProps> = memo(({
     >
       {shouldRenderCells && (
         <div className="terminal-line-cells">
-          {line.cells.map((cell, col) => (
-            <TerminalCellComponent key={col} cell={cell} />
-          ))}
+          {segments.map((segment, segIndex) => {
+            if (segment.type === 'url' && segment.url && onUrlClick) {
+              return (
+                <span
+                  key={segIndex}
+                  className="terminal-url-link"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onUrlClick(segment.url!)
+                  }}
+                  role="link"
+                  tabIndex={-1}
+                  aria-label={`Open link: ${segment.url}`}
+                >
+                  {segment.cells.map((cell, col) => (
+                    <TerminalCellComponent key={col} cell={cell} />
+                  ))}
+                </span>
+              )
+            }
+            // Plain text segment — render cells directly
+            return segment.cells.map((cell, col) => (
+              <TerminalCellComponent key={`${segIndex}-${col}`} cell={cell} />
+            ))
+          })}
         </div>
       )}
       {line.image && (
@@ -116,6 +197,8 @@ const TerminalLineComponent: React.FC<TerminalLineProps> = memo(({
       return false // Cell content changed, must re-render
     }
   }
+
+  // onUrlClick is stabilized via useCallback in parent — no need to compare
 
   return true // Everything identical, skip re-render
 })

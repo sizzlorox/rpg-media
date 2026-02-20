@@ -5,6 +5,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { useTerminalScrollBuffer } from './TerminalScrollBuffer'
 import { TerminalRenderer } from './TerminalRenderer'
+import { ExternalLinkModal } from './ExternalLinkModal'
 import { parseImageMarkers, getResponsiveImageDimensions } from './TerminalImageManager'
 import { ANSIParser } from '../../utils/ansi-parser'
 import { createDefaultLine } from '../../types/terminal'
@@ -294,6 +295,33 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
     lineHeight: responsiveConfig.config.fontSize * 1.2,
     charWidth: responsiveConfig.config.fontSize * 0.6
   })
+
+  // URL click state for external link confirmation modal
+  const [clickedUrl, setClickedUrl] = useState<string | null>(null)
+
+  const handleUrlClick = useCallback((url: string) => {
+    setClickedUrl(url)
+  }, [])
+
+  const handleUrlConfirm = useCallback(() => {
+    if (clickedUrl) {
+      // Security: only allow http/https/ftp protocols
+      const allowedProtocols = ['http:', 'https:', 'ftp:']
+      try {
+        const parsed = new URL(clickedUrl)
+        if (allowedProtocols.includes(parsed.protocol)) {
+          window.open(clickedUrl, '_blank', 'noopener,noreferrer')
+        }
+      } catch {
+        // Invalid URL — silently ignore
+      }
+      setClickedUrl(null)
+    }
+  }, [clickedUrl])
+
+  const handleUrlCancel = useCallback(() => {
+    setClickedUrl(null)
+  }, [])
 
   // Scroll lock during image loads to prevent jump
   const scrollLockRef = useRef(false)
@@ -622,6 +650,7 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
   // Render component
   const renderTerminal = () => {
     return (
+      <>
       <div
         ref={containerRef}
         className="custom-terminal-wrapper"
@@ -664,10 +693,19 @@ export function useCustomTerminal(props: UseCustomTerminalProps) {
             startLineNumber={startLine}
             onImageLoadStart={handleImageLoadStart}
             onImageLoadComplete={handleImageLoadComplete}
+            onUrlClick={handleUrlClick}
           />
         </div>
       </div>
     </div>
+      {clickedUrl && (
+        <ExternalLinkModal
+          url={clickedUrl}
+          onConfirm={handleUrlConfirm}
+          onCancel={handleUrlCancel}
+        />
+      )}
+    </>
     )
   }
 
